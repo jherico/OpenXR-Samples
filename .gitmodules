@@ -1,0 +1,3 @@
+[submodule "cmake/ezvcpkg"]
+	path = cmake/ezvcpkg
+	url = https://github.com/jherico/ezvcpkg.git
