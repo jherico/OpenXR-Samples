@@ -1,3 +1,10 @@
+//
+//  Created by Bradley Austin Davis on 2019/09/18
+//
+//  Distributed under the Apache License, Version 2.0.
+//  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
+//
+
 #define XR_USE_GRAPHICS_API_OPENGL
 #define SUPPRESS_DEBUG_UTILS
 #define _CRT_SECURE_NO_WARNINGS
@@ -37,38 +44,33 @@
 
 namespace xrs {
 
-namespace debug {
+namespace DebugUtilsEXT {
 
-using SevBits = xr::DebugUtilsMessageSeverityFlagBitsEXT;
-using TypeBits = xr::DebugUtilsMessageTypeFlagBitsEXT;
-using SevFlags = xr::DebugUtilsMessageSeverityFlagsEXT;
-using TypeFlags = xr::DebugUtilsMessageTypeFlagsEXT;
+using MessageSeverityFlagBits = xr::DebugUtilsMessageSeverityFlagBitsEXT;
+using MessageTypeFlagBits = xr::DebugUtilsMessageTypeFlagBitsEXT;
+using MessageSeverityFlags = xr::DebugUtilsMessageSeverityFlagsEXT;
+using MessageTypeFlags = xr::DebugUtilsMessageTypeFlagsEXT;
 using CallbackData = xr::DebugUtilsMessengerCallbackDataEXT;
 using Messenger = xr::DebugUtilsMessengerEXT;
 
-static Messenger messenger;
-
+// Raw C callback
 static XrBool32 debugCallback(XrDebugUtilsMessageSeverityFlagsEXT sev_,
                               XrDebugUtilsMessageTypeFlagsEXT type_,
                               const XrDebugUtilsMessengerCallbackDataEXT* data_,
                               void* userData) {
+    LOG_FORMATTED((logging::Level)sev_, "{}: message", data_->functionName, data_->message);
     return XR_TRUE;
 }
 
-void startup(const xr::Instance& instance,
-             const SevFlags& severityFlags = SevBits::AllBits,
-             const TypeFlags& typeFlags = TypeBits::AllBits,
-             void* userData = nullptr) {
-    messenger = instance.createDebugUtilsMessengerEXT({ severityFlags, typeFlags, debugCallback, userData },
-                                                      xr::DispatchLoaderDynamic{ instance });
+Messenger create(const xr::Instance& instance,
+                 const MessageSeverityFlags& severityFlags = MessageSeverityFlagBits::AllBits,
+                 const MessageTypeFlags& typeFlags = MessageTypeFlagBits::AllBits,
+                 void* userData = nullptr) {
+    return instance.createDebugUtilsMessengerEXT({ severityFlags, typeFlags, debugCallback, userData },
+                                                 xr::DispatchLoaderDynamic{ instance });
 }
 
-// Clear debug callback
-inline void shutdown(const xr::Instance& instance) {
-    messenger.destroy(xr::DispatchLoaderDynamic{ instance });
-}
-
-}  // namespace debug
+}  // namespace DebugUtilsEXT
 
 inline XrFovf toTanFovf(const XrFovf& fov) {
     return { tanf(fov.angleLeft), tanf(fov.angleRight), tanf(fov.angleUp), tanf(fov.angleDown) };
@@ -126,7 +128,6 @@ inline glm::mat4 toGlm(const XrPosef& p) {
 }
 
 }  // namespace xrs
-
 
 struct FrameCounter {
     using time_point = std::chrono::time_point<std::chrono::steady_clock>;
@@ -204,6 +205,7 @@ struct OpenXrExample {
     xr::SystemId systemId;
     xr::DispatchLoaderDynamic dispatch;
     glm::uvec2 renderTargetSize;
+	xrs::DebugUtilsEXT::Messenger messenger;
     xr::GraphicsRequirementsOpenGLKHR graphicsRequirements;
     void prepareXrInstance() {
         std::unordered_map<std::string, xr::ExtensionProperties> discoveredExtensions;
@@ -243,7 +245,7 @@ struct OpenXrExample {
                 dumci.messageSeverities = xr::DebugUtilsMessageSeverityFlagBitsEXT::AllBits;
                 dumci.messageTypes = xr::DebugUtilsMessageTypeFlagBitsEXT::AllBits;
                 dumci.userData = this;
-                dumci.userCallback = &xrs::debug::debugCallback;
+                dumci.userCallback = &xrs::DebugUtilsEXT::debugCallback;
                 ici.next = &dumci;
             }
 
@@ -252,7 +254,7 @@ struct OpenXrExample {
 
             // Turn on debug logging
             if (enableDebug) {
-                xrs::debug::startup(instance);
+                messenger = xrs::DebugUtilsEXT::create(instance);
             }
         }
 
@@ -264,10 +266,8 @@ struct OpenXrExample {
             // Now we want to fetch the instance properties
             xr::InstanceProperties instanceProperties = instance.getInstanceProperties();
             LOG_INFO("OpenXR Runtime {} version {}.{}.{}",  //
-                                     (const char*)instanceProperties.runtimeName,
-                                     (uint32_t)instanceProperties.runtimeVersion.major,
-                                     (uint32_t)instanceProperties.runtimeVersion.minor,
-                                     (uint32_t)instanceProperties.runtimeVersion.patch);
+                     (const char*)instanceProperties.runtimeName, (uint32_t)instanceProperties.runtimeVersion.major,
+                     (uint32_t)instanceProperties.runtimeVersion.minor, (uint32_t)instanceProperties.runtimeVersion.patch);
         }
 
         // We want to create an HMD example, so we ask for a runtime that supposts that form factor
@@ -278,10 +278,9 @@ struct OpenXrExample {
         {
             xr::SystemProperties systemProperties = instance.getSystemProperties(systemId);
             LOG_INFO("OpenXR System {} max layers {} max swapchain image size {}x{}",  //
-                                     (const char*)systemProperties.systemName,
-                                     (uint32_t)systemProperties.graphicsProperties.maxLayerCount,
-                                     (uint32_t)systemProperties.graphicsProperties.maxSwapchainImageWidth,
-                                     (uint32_t)systemProperties.graphicsProperties.maxSwapchainImageHeight);
+                     (const char*)systemProperties.systemName, (uint32_t)systemProperties.graphicsProperties.maxLayerCount,
+                     (uint32_t)systemProperties.graphicsProperties.maxSwapchainImageWidth,
+                     (uint32_t)systemProperties.graphicsProperties.maxSwapchainImageHeight);
         }
 
         // Find out what view configurations we have available
@@ -303,17 +302,17 @@ struct OpenXrExample {
         // Even preferable would be to create a swapchain texture array with one layer per eye, so that we could use the
         // VK_KHR_multiview to render both eyes with a single set of draws, but sadly the Oculus runtime doesn't currently
         // support texture array swapchains
-		if (viewConfigViews.size() != 2) {
-			throw std::runtime_error("Unexpected number of view configurations");
-		}
+        if (viewConfigViews.size() != 2) {
+            throw std::runtime_error("Unexpected number of view configurations");
+        }
 
-		if (viewConfigViews[0].recommendedImageRectHeight != viewConfigViews[1].recommendedImageRectHeight) {
-			throw std::runtime_error("Per-eye images have different recommended heights");
-		}
+        if (viewConfigViews[0].recommendedImageRectHeight != viewConfigViews[1].recommendedImageRectHeight) {
+            throw std::runtime_error("Per-eye images have different recommended heights");
+        }
 
         renderTargetSize = { viewConfigViews[0].recommendedImageRectWidth * 2, viewConfigViews[0].recommendedImageRectHeight };
-        
-		graphicsRequirements = instance.getOpenGLGraphicsRequirementsKHR(systemId, dispatch);
+
+        graphicsRequirements = instance.getOpenGLGraphicsRequirementsKHR(systemId, dispatch);
     }
 
     glfw::Window window;
@@ -332,9 +331,9 @@ struct OpenXrExample {
         window.makeCurrent();
         window.setSwapInterval(0);
 
-		// Initialize GLAD
+        // Initialize GLAD
         gl::init();
-		gl::report();
+        gl::report();
         // Make sure we get GL errors reported
         gl::setupDebugLogging();
     }
@@ -543,7 +542,7 @@ struct OpenXrExample {
         glFramebufferTexture(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-		swapchain.releaseSwapchainImage(xr::SwapchainImageReleaseInfo{});
+        swapchain.releaseSwapchainImage(xr::SwapchainImageReleaseInfo{});
 
         window.swapBuffers();
     }
@@ -570,6 +569,9 @@ struct OpenXrExample {
             session.destroy();
             session = nullptr;
         }
+		if (messenger) {
+			messenger.destroy(dispatch);
+		}
         if (instance) {
             instance.destroy();
             instance = nullptr;

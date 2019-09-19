@@ -6,7 +6,8 @@ set(NAME OpenXRExamples)
 include(${CMAKE_SOURCE_DIR}/cmake/ezvcpkg/ezvcpkg.cmake)
 
 ezvcpkg_fetch(
-    COMMIT 1e7303d4c52468fbb24a0d3418ff033d2585d18d
+    REPO jherico/vcpkg
+    COMMIT cfb3b69551964c583c4917509ea37c76efc49a4d
     PACKAGES assimp basisu fmt imgui glad glfw3 gli glm openxr-loader vulkan
     UPDATE_TOOLCHAIN
     USE_HOST_VCPKG

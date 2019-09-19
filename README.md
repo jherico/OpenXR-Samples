@@ -18,6 +18,7 @@
   * `cd build`
 * Configure using cmake (force 64-bit architecture)
   * `cmake .. -A x64`
+  * This step can take a while the first time, since it will automatically download and build all the dependencies
 * Build the example
   * `cmake --build . --config Debug --target gl_single_file_example`
 

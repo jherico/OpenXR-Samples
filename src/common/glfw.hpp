@@ -1,3 +1,9 @@
+//
+//  Created by Bradley Austin Davis
+//
+//  Distributed under the Apache License, Version 2.0.
+//  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
+//
 #pragma once
 
 #include <functional>
@@ -19,8 +25,7 @@ namespace glfw {
 using NativeContext = HGLRC;
 using NativeWindow = HWND;
 }  // namespace glfw
-
-#elif defined()
+#else
 #define GLFW_EXPOSE_NATIVE_X11
 #define GLFW_EXPOSE_NATIVE_GLX
 namespace glfw {
