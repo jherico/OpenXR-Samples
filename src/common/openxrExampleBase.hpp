@@ -32,20 +32,15 @@
 #include <vks/context.hpp>
 #endif
 
-#if !defined(DISABLE_XR)
 #include <xrs/context.hpp>
 #include <xrs/swapchain.hpp>
-#endif
-
-#include <magnum/window.hpp>
+#include <interfaces.hpp>
 
 namespace xr_examples {
-class OpenXRExampleBase {
+
+template <typename WindowType, typename FramebufferType, typename SceneType>
+class OpenXrExampleBase {
 public:
-    using Window = magnum::Window;
-
-    std::vector<xr::CompositionLayerBaseHeader*> layersPointers;
-
 #if defined(XR_USE_GRAPHICS_API_VULKAN)
     vks::Context& vkContext{ vks::Context::get() };
 #endif
@@ -56,12 +51,12 @@ public:
     float fpsTimer{ 0.0f };
     float lastFps{ 0.0f };
 
-    OpenXRExampleBase() {
+    OpenXrExampleBase() {
         // Static initialization for whatever our backed (Qt, Magnum, etc) needs
-        Window::init();
+        WindowType::init();
     }
 
-    ~OpenXRExampleBase() {
+    ~OpenXrExampleBase() {
 #if !defined(DISABLE_XR)
         xrContext.destroy();
 #endif
@@ -77,6 +72,8 @@ public:
         prepareXrSession();
         prepareXrSpaces();
         prepareXrActions();
+        preapreXrLayers();
+        prepareScene();
     }
 
     xrs::Context xrContext;
@@ -103,7 +100,8 @@ public:
         renderTargetSize = { viewConfigViews[0].recommendedImageRectWidth * 2, viewConfigViews[0].recommendedImageRectHeight };
     }
 
-    Window window;
+    WindowType window;
+    FramebufferType framebuffer;
     void prepareWindow() {
         assert(renderTargetSize.x != 0 && renderTargetSize.y != 0);
         window.create(renderTargetSize / 4u);
@@ -112,6 +110,15 @@ public:
         window.makeCurrent();
         window.setSwapInterval(0);
 #endif
+
+        framebuffer.create(renderTargetSize);
+    }
+
+    SceneType scene;
+    void prepareScene() {
+        scene.create();
+        scene.loadModel(assets::getAssetPathString("models/2CylinderEngine.glb"));
+        scene.setCubemap(assets::getAssetPathString("yokohama.basis"));
     }
 
     xr::Session& xrSession{ xrContext.session };
@@ -167,11 +174,32 @@ public:
         space = xrSession.createReferenceSpace(xr::ReferenceSpaceCreateInfo{ xr::ReferenceSpaceType::Local });
     }
 
+    std::array<xr::CompositionLayerProjectionView, 2> projectionLayerViews;
+    xr::CompositionLayerProjection projectionLayer{ {}, {}, 2, projectionLayerViews.data() };
+    xrs::gl::FramebufferSwapchain projectionSwapchain;
+    std::vector<xr::CompositionLayerBaseHeader*> layersPointers;
+    void preapreXrLayers() {
+        auto referenceSpaces = xrContext.session.enumerateReferenceSpaces();
+        projectionSwapchain.create(xrSession, renderTargetSize);
+        projectionLayer.space = space;
+        projectionLayer.viewCount = 2;
+        projectionLayer.views = projectionLayerViews.data();
+        // Finish setting up the layer submission
+        xr::for_each_side_index([&](uint32_t eyeIndex) {
+            auto& layerView = projectionLayerViews[eyeIndex];
+            layerView.subImage.swapchain = projectionSwapchain.swapchain;
+            layerView.subImage.imageRect.extent = { (int32_t)renderTargetSize.x / 2, (int32_t)renderTargetSize.y };
+            if (eyeIndex == 1) {
+                layerView.subImage.imageRect.offset.x = layerView.subImage.imageRect.extent.width;
+            }
+        });
+        layersPointers.push_back(&projectionLayer);
+    }
+
     xr::ActionSet actionSet;
     xr::Action gripPoseAction, aimPoseAction;
     xr::Action squeezeAction, triggerAction, thumbstickAction, thumbClickAction;
     xr::Action vibrateAction, quitAction;
-
     xr::BilateralPaths handPaths;
     std::array<xr::Space, 2> gripHandSpace;
     std::array<xr::Space, 2> aimHandSpace;
@@ -203,7 +231,7 @@ public:
         xrContext.addToBindings(commonBindings, gripPoseAction, "/input/grip/pose");
         xrContext.addToBindings(commonBindings, aimPoseAction, "/input/aim/pose");
         xrContext.addToBindings(commonBindings, thumbstickAction, "/input/thumbstick");
-        xrContext.addToBindings(commonBindings, thumbstickAction, "/input/thumbstick/click");
+        xrContext.addToBindings(commonBindings, thumbClickAction, "/input/thumbstick/click");
         xrContext.addToBindings(commonBindings, vibrateAction, "/output/haptic");
 
         // Suggest bindings for KHR Simple.
@@ -296,41 +324,100 @@ public:
         });
     }
 
-    virtual void update(float delta) {
+    virtual bool update(float delta) {
         if (xrContext.stopped) {
+            scene.destroy();
             window.requestClose();
-            return;
+            return false;
         }
         xrContext.pollEvents();
 
+        bool sessionSynced = false;
         switch (xrContext.state) {
             case xr::SessionState::Focused:
             case xr::SessionState::Visible:
-            case xr::SessionState::Synchronized: {
-                const xr::ActiveActionSet activeActionSet{ actionSet, xr::Path{ XR_NULL_PATH } };
-                xrSession.syncActions({ 1, &activeActionSet });
-                updateHandStates();
-            } break;
+            case xr::SessionState::Synchronized:
+                sessionSynced = true;
+                break;
 
+            // If we're not in one of the above session states, we're not going to do anything else this frame
             default:
+                //xrContext.beginFrameResult = xr::Result::FrameDiscarded;
+                //return false;
                 break;
         }
 
-        xrContext.onFrameStart();
-        xrContext.updateEyeViews(space);
+        if (sessionSynced) {
+            const xr::ActiveActionSet activeActionSet{ actionSet, xr::Path{ XR_NULL_PATH } };
+            xrSession.syncActions({ 1, &activeActionSet });
+            xrContext.onFrameStart();
+            xrContext.updateEyeViews(space);
+            updateHandStates();
+            scene.updateEyes(eyeStates);
+            scene.updateHands(handStates);
 
-        xr::for_each_side_index([&](size_t eyeIndex) {
-            const auto& viewState = xrContext.eyeViewStates[eyeIndex];
-            auto& eyeState = eyeStates[eyeIndex];
-            eyeState.projection = xrs::toGlmGL(viewState.fov);
-            eyeState.pose.position = xrs::toGlm(viewState.pose.position);
-            eyeState.pose.rotation = xrs::toGlm(viewState.pose.orientation);
-        });
+            xr::for_each_side_index([&](size_t eyeIndex) {
+                const auto& viewState = xrContext.eyeViewStates[eyeIndex];
+
+                // Copy the eye states to the projection layer.
+                // Remember when doing asynchronous rendering to carry the eye states to the rendering layer
+                auto& projectionLayerView = projectionLayerViews[eyeIndex];
+                projectionLayerView.fov = viewState.fov;
+                projectionLayerView.pose = viewState.pose;
+
+                auto& eyeState = eyeStates[eyeIndex];
+                eyeState.projection = xrs::toGlmGL(viewState.fov);
+                eyeState.pose.position = xrs::toGlm(viewState.pose.position);
+                eyeState.pose.rotation = xrs::toGlm(viewState.pose.orientation);
+            });
+        }
+
+		return true;
     }
 
-    virtual void render() = 0;
+    virtual void render() {
+        if (xrContext.stopped) {
+            return;
+        }
 
-    virtual std::string getWindowTitle() = 0;
+        if (!xrContext.shouldRender()) {
+            if (xrContext.beginFrameResult == xr::Result::Success) {
+                xrContext.session.endFrame(
+                    xr::FrameEndInfo{ xrContext.frameState.predictedDisplayTime, xr::EnvironmentBlendMode::Opaque });
+            }
+            window.swapBuffers();
+            return;
+        }
+
+        scene.render(framebuffer);
+
+        // Blit to the swapchain
+        {
+            projectionSwapchain.acquireImage();
+            projectionSwapchain.waitImage();
+            framebuffer.blitTo(projectionSwapchain.object, renderTargetSize);
+            projectionSwapchain.releaseImage();
+        }
+
+        // Submit the image layers
+        {
+            xr::FrameEndInfo frameEndInfo;
+            frameEndInfo.displayTime = xrContext.frameState.predictedDisplayTime;
+            frameEndInfo.environmentBlendMode = xr::EnvironmentBlendMode::Opaque;
+            frameEndInfo.layerCount = static_cast<uint32_t>(layersPointers.size());
+            frameEndInfo.layers = layersPointers.data();
+            xrContext.session.endFrame(frameEndInfo);
+        }
+
+        // Blit to the window
+        framebuffer.blitTo(0, window.getSize());
+        window.swapBuffers();
+    }
+
+    virtual std::string getWindowTitle() {
+        static const std::string device = (const char*)glGetString(GL_VERSION);
+        return "OpenXR SDK Example " + device + " - " + std::to_string((int)lastFps) + " fps";
+    }
 
     void run() {
         prepare();
@@ -339,8 +426,6 @@ public:
         window.runWindowLoop([&] {
             auto tEnd = std::chrono::high_resolution_clock::now();
             auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();
-            update((float)tDiff / 1000.0f);
-            render();
             fpsTimer += (float)tDiff;
             if (fpsTimer > 1000.0f) {
                 window.setTitle(getWindowTitle());
@@ -352,6 +437,11 @@ public:
             }
             tStart = tEnd;
             ++frameCounter;
+            if (!update((float)tDiff / 1000.0f)) {
+                Sleep(100);
+                return;
+            }
+            render();
         });
     }
 };

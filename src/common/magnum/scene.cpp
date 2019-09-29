@@ -251,27 +251,27 @@ public:
 
         auto buffer = assets::getAssetContentsBinary(filename);
         auto basisReader = std::make_shared<BasisReader>(buffer.data(), buffer.size());
-		const auto& ii = basisReader->imageInfo;
-		
-		Vector2i size{ (int32_t)ii.m_orig_width, (int32_t)ii.m_orig_height };
-		auto& cubemap = *_texture;
-		cubemap.setStorage(Math::log2(size.min()) + 1, GL::TextureFormat::RGBA8, size);
+        const auto& ii = basisReader->imageInfo;
 
-		std::vector<uint8_t> imageBuffer;
-		imageBuffer.resize(basisReader->getImageSize());
-		Corrade::Containers::ArrayView<uint8_t> arrayView{ imageBuffer.data(), imageBuffer.size() };
-		ImageView2D imageView{ GL::PixelFormat::RGBA, GL::PixelType::UnsignedByte, size, arrayView };
-		basisReader->readImageToBuffer(imageBuffer.data(), 0, 0);
+        Vector2i size{ (int32_t)ii.m_orig_width, (int32_t)ii.m_orig_height };
+        auto& cubemap = *_texture;
+        cubemap.setStorage(Math::log2(size.min()) + 1, GL::TextureFormat::RGBA8, size);
+
+        std::vector<uint8_t> imageBuffer;
+        imageBuffer.resize(basisReader->getImageSize());
+        Corrade::Containers::ArrayView<uint8_t> arrayView{ imageBuffer.data(), imageBuffer.size() };
+        ImageView2D imageView{ GL::PixelFormat::RGBA, GL::PixelType::UnsignedByte, size, arrayView };
+        basisReader->readImageToBuffer(imageBuffer.data(), 0, 0);
         cubemap.setSubImage(GL::CubeMapCoordinate::PositiveX, 0, {}, imageView);
-		basisReader->readImageToBuffer(imageBuffer.data(), 0, 1);
+        basisReader->readImageToBuffer(imageBuffer.data(), 0, 1);
         cubemap.setSubImage(GL::CubeMapCoordinate::NegativeX, 0, {}, imageView);
-		basisReader->readImageToBuffer(imageBuffer.data(), 0, 2);
+        basisReader->readImageToBuffer(imageBuffer.data(), 0, 2);
         cubemap.setSubImage(GL::CubeMapCoordinate::PositiveY, 0, {}, imageView);
-		basisReader->readImageToBuffer(imageBuffer.data(), 0, 3);
+        basisReader->readImageToBuffer(imageBuffer.data(), 0, 3);
         cubemap.setSubImage(GL::CubeMapCoordinate::NegativeY, 0, {}, imageView);
-		basisReader->readImageToBuffer(imageBuffer.data(), 0, 4);
+        basisReader->readImageToBuffer(imageBuffer.data(), 0, 4);
         cubemap.setSubImage(GL::CubeMapCoordinate::PositiveZ, 0, {}, imageView);
-		basisReader->readImageToBuffer(imageBuffer.data(), 0, 5);
+        basisReader->readImageToBuffer(imageBuffer.data(), 0, 5);
         cubemap.setSubImage(GL::CubeMapCoordinate::NegativeZ, 0, {}, imageView);
         cubemap.generateMipmap();
     }
@@ -280,7 +280,9 @@ public:
         if (!_texture) {
             return;
         }
-        _shader->setTransformationProjectionMatrix(camera.projectionMatrix() * transformationMatrix).setTexture(*_texture);
+
+        _shader->setTransformationProjectionMatrix(camera.projectionMatrix() * Matrix4{ transformationMatrix.rotation() })
+            .setTexture(*_texture);
         _skybox->draw(*_shader);
     }
 
@@ -609,6 +611,14 @@ void Scene::updateHands(const xr_examples::HandStates& handStates) {
         auto& handData = d->handsData[eyeIndex];
         float scale = 0.01f + (0.05f * handState.squeeze);
         handData.gripRoot->setTransformation(fromGlm(handState.grip) * rot * Matrix4::scaling({ scale, scale, scale }));
+
+        if (eyeIndex == 0) {
+            Vector3 playerTranslate{ handState.thumb.x, 0, -handState.thumb.y };
+            d->playerRoot->translate(playerTranslate * 0.01f);
+            if (handState.thumbClicked) {
+                d->playerRoot->setTransformation(Matrix4::translation({ 0.0f, 0.2f, 0.65f }));
+            }
+        }
 
         scale = 0.01f;
         float translate = handState.trigger * 0.1f;
