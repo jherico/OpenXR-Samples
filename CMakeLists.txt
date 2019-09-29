@@ -3,14 +3,15 @@ cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 include("cmake/defaults.cmake")
 set(NAME OpenXRExamples)
 
+# Dependency management
 include(${CMAKE_SOURCE_DIR}/cmake/ezvcpkg/ezvcpkg.cmake)
-
 ezvcpkg_fetch(
     REPO jherico/vcpkg
-    COMMIT cfb3b69551964c583c4917509ea37c76efc49a4d
-    PACKAGES assimp basisu fmt imgui glad glfw3 gli glm openxr-loader vulkan
+    COMMIT dde02ead070153a32a8652afafe97aed3a0967d8
+    PACKAGES assimp basisu fmt glad  glm openxr-loader vulkan magnum "magnum-plugins[tinygltfimporter]"
     UPDATE_TOOLCHAIN
     USE_HOST_VCPKG
+    SAVE_BUILD
 )
 
 project(${NAME})
@@ -35,13 +36,6 @@ if (NOT ANDROID)
     set_target_properties(SetupDebug PROPERTIES FOLDER "CMakeTargets")
 endif()
 
-if (ANDROID)
-    add_definitions(-DVULKAN_HPP_NO_SMART_HANDLE)
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
-    set(APP_GLUE_DIR ${ANDROID_NDK}/sources/android/native_app_glue)
-    include_directories(${APP_GLUE_DIR})
-    add_library(app-glue STATIC ${APP_GLUE_DIR}/android_native_app_glue.c)
-endif()
-
+add_subdirectory(data/shaders)
 add_subdirectory(src/common)
 add_subdirectory(src/examples)

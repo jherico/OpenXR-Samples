@@ -6,18 +6,8 @@
 //
 
 #define XR_USE_GRAPHICS_API_OPENGL
-#define SUPPRESS_DEBUG_UTILS
-#define _CRT_SECURE_NO_WARNINGS
-
-#if defined(WIN32)
 #define XR_USE_PLATFORM_WIN32
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#elif defined(__ANDROID__)
-#define XR_USE_PLATFORM_ANDROID
-#elif
-#define XR_USE_PLATFORM_XLIB
-#endif
 
 #include <cstdint>
 
@@ -35,11 +25,14 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include <Windows.h>
+
 #include <openxr/openxr.hpp>
 #include <openxr/openxr_platform.h>
 
-#include <gl.hpp>
-#include <glfw.hpp>
+#include <SDL.h>
+#include <glad/glad.h>
+
 #include <logging.hpp>
 
 namespace xrs {
@@ -175,6 +168,7 @@ struct FrameCounter {
 
 struct OpenXrExample {
     FrameCounter frameCounter;
+    bool quit{ false };
 
     // Application main function
     void run() {
@@ -182,7 +176,22 @@ struct OpenXrExample {
         prepare();
 
         // Loop
-        window.runWindowLoop([&] { frame(); });
+        while (!quit) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                switch (event.type) {
+                    case SDL_KEYUP:
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                            quit = true;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            frame();
+        }
 
         // Teardown work
         destroy();
@@ -205,9 +214,9 @@ struct OpenXrExample {
     xr::SystemId systemId;
     xr::DispatchLoaderDynamic dispatch;
     glm::uvec2 renderTargetSize;
-	xrs::DebugUtilsEXT::Messenger messenger;
+    xrs::DebugUtilsEXT::Messenger messenger;
     xr::GraphicsRequirementsOpenGLKHR graphicsRequirements;
-    void prepareXrInstance() {
+	void prepareXrInstance() {
         std::unordered_map<std::string, xr::ExtensionProperties> discoveredExtensions;
         for (const auto& extensionProperties : xr::enumerateInstanceExtensionProperties(nullptr)) {
             discoveredExtensions.insert({ extensionProperties.extensionName, extensionProperties });
@@ -290,9 +299,6 @@ struct OpenXrExample {
             if (viewConfigType != xr::ViewConfigurationType::PrimaryStereo) {
                 throw std::runtime_error("Example only supports stereo-based HMD rendering");
             }
-            //xr::ViewConfigurationProperties viewConfigProperties =
-            //    instance.getViewConfigurationProperties(systemId, viewConfigType);
-            //logging::log(logging::Level::Info, fmt::format(""));
         }
 
         std::vector<xr::ViewConfigurationView> viewConfigViews =
@@ -313,35 +319,31 @@ struct OpenXrExample {
         renderTargetSize = { viewConfigViews[0].recommendedImageRectWidth * 2, viewConfigViews[0].recommendedImageRectHeight };
 
         graphicsRequirements = instance.getOpenGLGraphicsRequirementsKHR(systemId, dispatch);
+		LOG_INFO("OpenXR GL Requirements: min version {}.{} max version {}.{}",  //
+			(uint32_t)graphicsRequirements.minApiVersionSupported.major, (uint32_t)graphicsRequirements.minApiVersionSupported.minor,
+			(uint32_t)graphicsRequirements.maxApiVersionSupported.major, (uint32_t)graphicsRequirements.maxApiVersionSupported.minor);
     }
 
-    glfw::Window window;
-    glm::uvec2 windowSize;
+    SDL_Window* window{ nullptr };
+    SDL_GLContext context;
     void prepareWindow() {
         assert(renderTargetSize.x != 0 && renderTargetSize.y != 0);
-        windowSize = renderTargetSize;
-        windowSize /= 4;
-        glfwInit();
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, graphicsRequirements.maxApiVersionSupported.major);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, graphicsRequirements.maxApiVersionSupported.minor);
-        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-        window.createWindow(windowSize);
 
-        window.makeCurrent();
-        window.setSwapInterval(0);
+        SDL_Init(SDL_INIT_VIDEO);
 
-        // Initialize GLAD
-        gl::init();
-        gl::report();
-        // Make sure we get GL errors reported
-        gl::setupDebugLogging();
+        glm::uvec2 pos{ SDL_WINDOWPOS_UNDEFINED };
+        auto size = renderTargetSize / 4u;
+        auto flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+        window = SDL_CreateWindow("OpenXR Example", pos.x, pos.y, size.x, size.y, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+        context = SDL_GL_CreateContext(window);
+        gladLoadGL();
+        SDL_GL_SetSwapInterval(0);
     }
 
     xr::Session session;
+	xr::Space space;
     void prepareXrSession() {
-        xr::GraphicsBindingOpenGLWin32KHR graphicsBinding{ GetDC(window.getNativeWindowHandle()),
-                                                           window.getNativeContextHandle() };
+        xr::GraphicsBindingOpenGLWin32KHR graphicsBinding{ wglGetCurrentDC(), wglGetCurrentContext() };
         xr::SessionCreateInfo sci{ {}, systemId };
         sci.next = &graphicsBinding;
         session = instance.createSession(sci);
@@ -362,20 +364,17 @@ struct OpenXrExample {
         swapchainCreateInfo.mipCount = 1;
         swapchainCreateInfo.width = renderTargetSize.x;
         swapchainCreateInfo.height = renderTargetSize.y;
-
         swapchain = session.createSwapchain(swapchainCreateInfo);
-
         swapchainImages = swapchain.enumerateSwapchainImages<xr::SwapchainImageOpenGLKHR>();
     }
 
     std::array<xr::CompositionLayerProjectionView, 2> projectionLayerViews;
     xr::CompositionLayerProjection projectionLayer{ {}, {}, 2, projectionLayerViews.data() };
-    xr::Space& space{ projectionLayer.space };
     std::vector<xr::CompositionLayerBaseHeader*> layersPointers;
     void prepareXrCompositionLayers() {
-        //session.getReferenceSpaceBoundsRect(xr::ReferenceSpaceType::Local, bounds);
         projectionLayer.viewCount = 2;
         projectionLayer.views = projectionLayerViews.data();
+		projectionLayer.space = space;
         layersPointers.push_back(&projectionLayer);
         // Finish setting up the layer submission
         xr::for_each_side_index([&](uint32_t eyeIndex) {
@@ -392,7 +391,8 @@ struct OpenXrExample {
         GLuint id{ 0 };
         GLuint depthBuffer{ 0 };
     } fbo;
-    void prepareGlFramebuffer() {
+
+	void prepareGlFramebuffer() {
         // Create a depth renderbuffer compatible with the Swapchain sample count and size
         glGenRenderbuffers(1, &fbo.depthBuffer);
         glBindRenderbuffer(GL_RENDERBUFFER, fbo.depthBuffer);
@@ -426,7 +426,7 @@ struct OpenXrExample {
             endXrFrame();
             if (frameCounter.updateFps()) {
                 static const std::string device = (const char*)glGetString(GL_VERSION);
-                window.setTitle(fmt::format("OpenXR SDK Example {} - {} fps", device, frameCounter.lastFps));
+                SDL_SetWindowTitle(window, fmt::format("OpenXR SDK Example {} - {} fps", device, frameCounter.lastFps).c_str());
             }
         }
     }
@@ -455,14 +455,14 @@ struct OpenXrExample {
         sessionState = sessionStateChangedEvent.state;
         switch (sessionState) {
             case xr::SessionState::Ready:
-                if (!window.shouldClose()) {
+                if (!quit) {
                     session.beginSession(xr::SessionBeginInfo{ xr::ViewConfigurationType::PrimaryStereo });
                 }
                 break;
 
             case xr::SessionState::Stopping:
                 session.endSession();
-                window.requestClose();
+                quit = true;
                 break;
 
             default:
@@ -544,7 +544,7 @@ struct OpenXrExample {
 
         swapchain.releaseSwapchainImage(xr::SwapchainImageReleaseInfo{});
 
-        window.swapBuffers();
+        SDL_GL_SwapWindow(window);
     }
 
     //////////////////////////////////////
@@ -569,9 +569,9 @@ struct OpenXrExample {
             session.destroy();
             session = nullptr;
         }
-		if (messenger) {
-			messenger.destroy(dispatch);
-		}
+        if (messenger) {
+            messenger.destroy(dispatch);
+        }
         if (instance) {
             instance.destroy();
             instance = nullptr;
@@ -579,7 +579,7 @@ struct OpenXrExample {
     }
 };
 
-int main(const int argc, const char* argv[]) {
+int main(int argc, char* argv[]) {
     try {
         OpenXrExample().run();
     } catch (const std::exception& err) {

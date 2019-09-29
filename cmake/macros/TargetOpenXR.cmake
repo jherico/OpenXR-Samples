@@ -4,6 +4,7 @@ macro(TARGET_OPENXR)
     include(SelectLibraryConfigurations)
     select_library_configurations(OPENXR)
     target_link_libraries(${TARGET_NAME} PUBLIC ${OPENXR_LIBRARIES})
+    target_include_directories(${TARGET_NAME} PUBLIC ${EZVCPKG_DIR}/include)
 endmacro()
 
 

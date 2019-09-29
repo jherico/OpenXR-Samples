@@ -10,6 +10,7 @@
 #include <chrono>
 #include <ctime>
 #include <fmt/format.h>
+#include <iostream>
 
 namespace logging {
 using Time = std::chrono::time_point<std::chrono::system_clock>;
