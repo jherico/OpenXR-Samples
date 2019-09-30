@@ -8,7 +8,20 @@ endif()
 foreach(EXAMPLE ${EXAMPLES})
     get_filename_component(TARGET_NAME ${EXAMPLE} NAME_WE)
 
-    add_executable(${TARGET_NAME})
+    set(TARGET_QML_DIR ${CMAKE_SOURCE_DIR}/data/qml)
+
+    if ((${TARGET_NAME} MATCHES ".*_qt_.*" ) OR (${TARGET_NAME} MATCHES "^qt_.*" ))
+		if (NOT Qt5_FOUND)
+			continue()
+		endif()
+        set(CMAKE_AUTOMOC ON)
+        set(CMAKE_AUTORCC ON)
+        add_qt_executable(${TARGET_NAME})
+		target_qt()
+    else()
+        add_executable(${TARGET_NAME})
+    endif()
+
     target_sources(${TARGET_NAME} PRIVATE ${EXAMPLE})
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER "examples")
     add_dependencies(${TARGET_NAME} common)
@@ -20,16 +33,37 @@ foreach(EXAMPLE ${EXAMPLES})
 	# FIXME remove this when Oculus starts working with debug utils ext
     target_compile_definitions(${TARGET_NAME} PRIVATE SUPPRESS_DEBUG_UTILS)
 
+    # String formatting library
     target_fmt()
+    # 3D math library
     target_glm()
+    # OpenXR loader
     target_openxr()
-	target_basisu()
-    target_magnum()
+    # Cross-platform window management
+    # target_glfw3()
+    # Cross-platform UI
+    # GPU compressed images
+    target_basisu()
+    # OpenGL function loader
+	target_glad()
+
+    if ((${TARGET_NAME} MATCHES ".*_magnum_.*" ) OR (${TARGET_NAME} MATCHES "^magnum_.*" ))
+        target_magnum()
+    endif()
+    
+
+    if ((${TARGET_NAME} MATCHES ".*_qt_.*" ) OR (${TARGET_NAME} MATCHES "^qt_.*" ))
+		target_qt()
+        set(CMAKE_AUTOMOC OFF)
+        set(CMAKE_AUTORCC OFF)
+    endif()
 
     if ((${TARGET_NAME} MATCHES ".*_gl_.*" ) OR (${TARGET_NAME} MATCHES "^gl_.*" ))
         target_glad()
-		target_sdl2()
-		set_target_properties(${TARGET_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
+
+    if ((${TARGET_NAME} MATCHES ".*_sdl2_.*" ) OR (${TARGET_NAME} MATCHES "^sdl2_.*" ))
+        target_sdl2()
     endif()
 
     if ((${TARGET_NAME} MATCHES ".*_vk_.*" ) OR (${TARGET_NAME} MATCHES "vk_.*" ))

@@ -1,3 +1,4 @@
+
 #
 #  Created by Bradley Austin Davis on 2019/09/29
 #
@@ -7,4 +8,7 @@
 macro(TARGET_SDL2)
     find_package(SDL2 CONFIG REQUIRED)
     target_link_libraries(${TARGET_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main)
+    if (WIN32)
+        set_target_properties(${TARGET_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif()
 endmacro()

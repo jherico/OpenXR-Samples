@@ -3,7 +3,6 @@
 
 #include <common.hpp>
 #include <openxrExampleBase.hpp>
-#include <xrs/glm.hpp>
 #include <assets.hpp>
 
 #include <magnum/scene.hpp>

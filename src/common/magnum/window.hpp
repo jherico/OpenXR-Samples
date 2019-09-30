@@ -14,7 +14,7 @@ public:
 
     Window();
     virtual ~Window();
-    void create(const glm::uvec2& size) override;
+    void create(const xr::Extent2Di& size) override;
     void makeCurrent() override;
     void doneCurrent() override;
     void setSwapInterval(uint32_t swapInterval);
@@ -22,7 +22,7 @@ public:
     void runWindowLoop(const ::std::function<void()>& handler) override;
     void swapBuffers() override;
     void requestClose() override;
-    glm::uvec2 getSize() const override;
+    xr::Extent2Di getSize() const override;
 
 private:
     ::std::shared_ptr<Private> d;

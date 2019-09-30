@@ -5,45 +5,29 @@
 //  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 //
 #include "interfaces.hpp"
-
-#include <openxr/openxr.hpp>
-#include <xrs/glm.hpp>
-
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#pragma warning(disable : 4267)
-#include <Magnum/GL/GL.h>
-#include <Magnum/GL/Framebuffer.h>
-#pragma warning(pop)
+#include <glad/glad.h>
 
 using namespace xr_examples;
 
-EyeState& xr_examples::EyeState::operator=(const xr::View& eyeView) {
-    projection = xrs::toGlmGL(eyeView.fov);
-    pose.position = xrs::toGlm(eyeView.pose.position);
-    pose.rotation = xrs::toGlm(eyeView.pose.orientation);
-    return *this;
-}
-
-void Framebuffer::blitTo(uint32_t dest, const glm::uvec2& destSize) {
+void Framebuffer::blitTo(uint32_t dest, const xr::Extent2Di& destSize) {
     blitTo(dest, destSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
-void Framebuffer::blitTo(uint32_t dest, const glm::uvec2& destSize, uint32_t mask, uint32_t filter) {
+void Framebuffer::blitTo(uint32_t dest, const xr::Extent2Di& destSize, uint32_t mask, uint32_t filter) {
     blit(id(), getSize(), dest, destSize, mask, filter);
 }
 
 void Framebuffer::blit(uint32_t source,
-                       const glm::uvec2& sourceSize,
+                       const xr::Extent2Di& sourceSize,
                        uint32_t dest,
-                       const glm::uvec2& destSize,
+                       const xr::Extent2Di& destSize,
                        uint32_t mask,
                        uint32_t filter) {
-    glBlitNamedFramebuffer(source, dest,                      //
-                           0, 0, sourceSize.x, sourceSize.y,  //
-                           0, 0, destSize.x, destSize.y,      //
+    glBlitNamedFramebuffer(source, dest,                               //
+                           0, 0, sourceSize.width, sourceSize.height,  //
+                           0, 0, destSize.width, destSize.height,      //
                            mask, filter);
 }
 
-void Framebuffer::blit(uint32_t source, const glm::uvec2& sourceSize, uint32_t dest, const glm::uvec2& destSize) {
+void Framebuffer::blit(uint32_t source, const xr::Extent2Di& sourceSize, uint32_t dest, const xr::Extent2Di& destSize) {
     blit(source, sourceSize, dest, destSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }

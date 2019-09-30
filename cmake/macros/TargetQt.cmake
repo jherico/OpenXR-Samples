@@ -1,0 +1,7 @@
+macro(target_qt)
+    if (Qt5_FOUND)
+        target_compile_definitions(${TARGET_NAME} PRIVATE HAVE_QT)
+        target_link_libraries(${TARGET_NAME} PRIVATE Qt5::Gui Qt5::Qml Qt5::Quick Qt5::QuickControls2 Qt5::3DQuick Qt5::3DCore Qt5::3DExtras)
+        target_include_directories(${TARGET_NAME} PRIVATE ${Qt53DRender_PRIVATE_INCLUDE_DIRS})
+    endif()
+endmacro()

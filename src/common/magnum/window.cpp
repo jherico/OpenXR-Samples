@@ -12,7 +12,7 @@
 #include <Corrade/Utility/Arguments.h>
 #pragma warning(pop)
 
-#include <magnum/glm.hpp>
+#include <magnum/math.hpp>
 
 extern int g_argc;
 extern char** g_argv;
@@ -48,12 +48,12 @@ Window::~Window() {
     d.reset();
 }
 
-glm::uvec2 Window::getSize() const {
+xr::Extent2Di Window::getSize() const {
     return { d->size.x(), d->size.y() };
 }
 
-void xr_examples::magnum::Window::create(const glm::uvec2& size) {
-    d = std::make_shared<Private>(*this, fromGlm(size));
+void xr_examples::magnum::Window::create(const xr::Extent2Di& size) {
+    d = std::make_shared<Private>(*this, fromXr(size));
 }
 
 void Window::makeCurrent() {

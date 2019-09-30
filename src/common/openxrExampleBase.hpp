@@ -35,6 +35,7 @@
 #include <xrs/context.hpp>
 #include <xrs/swapchain.hpp>
 #include <interfaces.hpp>
+#include <assets.hpp>
 
 namespace xr_examples {
 
@@ -46,7 +47,7 @@ public:
 #endif
 
     uint32_t frameCounter{ 0 };
-    glm::uvec2 renderTargetSize;
+    xr::Extent2Di renderTargetSize;
     EyeStates eyeStates;
     float fpsTimer{ 0.0f };
     float lastFps{ 0.0f };
@@ -97,18 +98,20 @@ public:
             throw std::runtime_error("Per-eye images have different recommended heights");
         }
 
-        renderTargetSize = { viewConfigViews[0].recommendedImageRectWidth * 2, viewConfigViews[0].recommendedImageRectHeight };
+        renderTargetSize = { (int32_t)viewConfigViews[0].recommendedImageRectWidth * 2,
+                             (int32_t)viewConfigViews[0].recommendedImageRectHeight };
     }
 
     WindowType window;
     FramebufferType framebuffer;
     void prepareWindow() {
-        assert(renderTargetSize.x != 0 && renderTargetSize.y != 0);
-        window.create(renderTargetSize / 4u);
+        assert(renderTargetSize.width != 0 && renderTargetSize.height != 0);
+        window.create({ renderTargetSize.width / 4, renderTargetSize.height / 4 });
 
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
         window.makeCurrent();
         window.setSwapInterval(0);
+        gladLoadGL();
 #endif
 
         framebuffer.create(renderTargetSize);
@@ -188,7 +191,7 @@ public:
         xr::for_each_side_index([&](uint32_t eyeIndex) {
             auto& layerView = projectionLayerViews[eyeIndex];
             layerView.subImage.swapchain = projectionSwapchain.swapchain;
-            layerView.subImage.imageRect.extent = { (int32_t)renderTargetSize.x / 2, (int32_t)renderTargetSize.y };
+            layerView.subImage.imageRect.extent = { (int32_t)renderTargetSize.width / 2, (int32_t)renderTargetSize.height };
             if (eyeIndex == 1) {
                 layerView.subImage.imageRect.offset.x = layerView.subImage.imageRect.extent.width;
             }
@@ -273,18 +276,18 @@ public:
         return defaultValue;
     }
 
-    glm::vec2 getHandActionVec2(uint32_t hand, const xr::Action& action, const glm::vec2& defaultValue = glm::vec2{ 0.0f }) {
+    xr::Vector2f getHandActionVec2(uint32_t hand, const xr::Action& action, const xr::Vector2f& defaultValue = {}) {
         if (!action) {
             return defaultValue;
         }
         auto value = xrSession.getActionStateVector2f({ action, handPaths[hand] });
         if (XR_TRUE == value.isActive) {
-            return { value.currentState.x, value.currentState.y };
+            return value.currentState;
         }
         return defaultValue;
     }
 
-    xrs::pose getHandPose(uint32_t hand, const xr::Action& action, xr::Space& handSpace) {
+    xr::Posef getHandPose(uint32_t hand, const xr::Action& action, xr::Space& handSpace) {
         if (!action) {
             return {};
         }
@@ -297,7 +300,7 @@ public:
                                                      xr::SpaceLocationFlags{ xr::SpaceLocationFlagBits::OrientationValid };
         auto locationResult = handSpace.locateSpace(space, xrContext.frameState.predictedDisplayTime);
         if (locationResult.locationFlags & requiredFlags) {
-            return xrs::toGlmPose(locationResult.pose);
+            return locationResult.pose;
         }
         return {};
     }
@@ -358,21 +361,17 @@ public:
 
             xr::for_each_side_index([&](size_t eyeIndex) {
                 const auto& viewState = xrContext.eyeViewStates[eyeIndex];
+                eyeStates[eyeIndex] = viewState;
 
                 // Copy the eye states to the projection layer.
                 // Remember when doing asynchronous rendering to carry the eye states to the rendering layer
                 auto& projectionLayerView = projectionLayerViews[eyeIndex];
                 projectionLayerView.fov = viewState.fov;
                 projectionLayerView.pose = viewState.pose;
-
-                auto& eyeState = eyeStates[eyeIndex];
-                eyeState.projection = xrs::toGlmGL(viewState.fov);
-                eyeState.pose.position = xrs::toGlm(viewState.pose.position);
-                eyeState.pose.rotation = xrs::toGlm(viewState.pose.orientation);
             });
         }
 
-		return true;
+        return true;
     }
 
     virtual void render() {

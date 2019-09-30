@@ -13,7 +13,7 @@
 #include <Magnum/GL/Framebuffer.h>
 #pragma warning(pop)
 
-#include <magnum/glm.hpp>
+#include <magnum/math.hpp>
 
 using namespace Magnum;
 using namespace xr_examples;
@@ -43,11 +43,11 @@ magnum::Framebuffer::~Framebuffer() {
     d.reset();
 }
 
-void magnum::Framebuffer::create(const glm::uvec2& size) {
+void magnum::Framebuffer::create(const xr::Extent2Di& size) {
     this->size = size;
 	this->eyeSize = size;
-	eyeSize.x /= 2;
-    d = std::make_shared<Private>(fromGlm(size));
+	eyeSize.width /= 2;
+    d = std::make_shared<Private>(fromXr(size));
 }
 
 void magnum::Framebuffer::clear() {
@@ -70,8 +70,8 @@ void magnum::Framebuffer::bindDefault(Target target) {
     }
 }
 
-void magnum::Framebuffer::setViewport(const glm::uvec4& viewport) {
-    d->object.setViewport(fromGlm(viewport));
+void magnum::Framebuffer::setViewport(const xr::Rect2Di& viewport) {
+    d->object.setViewport(fromXr(viewport));
 }
 
 uint32_t magnum::Framebuffer::id() {

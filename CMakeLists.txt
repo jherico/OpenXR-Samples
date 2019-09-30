@@ -8,7 +8,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/ezvcpkg/ezvcpkg.cmake)
 ezvcpkg_fetch(
     REPO jherico/vcpkg
     COMMIT dde02ead070153a32a8652afafe97aed3a0967d8
-    PACKAGES assimp basisu fmt glad  glm openxr-loader vulkan magnum "magnum-plugins[tinygltfimporter]"
+    PACKAGES assimp basisu fmt glad glm openxr-loader vulkan magnum "magnum-plugins[tinygltfimporter]"
     UPDATE_TOOLCHAIN
     USE_HOST_VCPKG
     SAVE_BUILD
@@ -35,6 +35,9 @@ if (NOT ANDROID)
     add_custom_target(SetupDebug ALL ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/bin_debug)
     set_target_properties(SetupDebug PROPERTIES FOLDER "CMakeTargets")
 endif()
+
+
+setup_qt(Gui Qml Quick QuickControls2 3DCore 3DExtras 3DQuick)
 
 add_subdirectory(data/shaders)
 add_subdirectory(src/common)

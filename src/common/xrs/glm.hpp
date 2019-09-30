@@ -1,5 +1,6 @@
 #pragma once
 
+#if 0 
 #include <openxr/openxr.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -136,3 +137,5 @@ static inline xr::Posef poseFromGlm(const glm::mat4& m) {
 }
 
 }  // namespace xrs
+
+#endif

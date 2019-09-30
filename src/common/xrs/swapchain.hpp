@@ -3,13 +3,9 @@
 #define XR_USE_GRAPHICS_API_OPENGL
 
 #include <openxr/openxr.hpp>
+
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#pragma warning(disable : 4267)
-#include <Magnum/GL/GL.h>
-#include <Magnum/GL/Framebuffer.h>
-#pragma warning(pop)
+#include <glad/glad.h>
 #endif
 
 namespace xrs {
@@ -18,7 +14,6 @@ namespace xrs {
 using DefaultSwapchainImageType = xr::SwapchainImageVulkanKHR;
 using SwapchainFormatType = vk::Format;
 constexpr vk::Format DEFAULT_SWAPCHAIN_FORMAT{ vk::Format::eB8G8R8A8Srgb };
-#define DEFAULT_SWAPCHAIN_FORMAT
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
 using DefaultSwapchainImageType = xr::SwapchainImageOpenGLKHR;
 using SwapchainFormatType = uint32_t;
@@ -42,16 +37,23 @@ struct Swapchain {
     }
 
     void create(const xr::Session& session,
-                const glm::uvec2& size,
+                const xr::Extent2Di& size,
                 SwapchainFormatType format = DEFAULT_SWAPCHAIN_FORMAT,
                 xr::SwapchainUsageFlags usageFlags = xr::SwapchainUsageFlagBits::TransferDst,
                 uint32_t samples = 1,
                 uint32_t arrayCount = 1,
                 uint32_t faceCount = 1,
                 uint32_t mipCount = 1) {
-        createSwapchain(session,
-                        xr::SwapchainCreateInfo{
-                            {}, usageFlags, (int64_t)format, samples, size.x, size.y, faceCount, arrayCount, mipCount });
+        xr::SwapchainCreateInfo ci;
+        ci.usageFlags = usageFlags;
+        ci.format = (int64_t)format;
+        ci.sampleCount = samples;
+        ci.width = size.width;
+        ci.height = size.height;
+        ci.faceCount = faceCount;
+        ci.arraySize = arrayCount;
+        ci.mipCount = mipCount;
+        createSwapchain(session, ci);
     }
 
     virtual void destroy() {
@@ -87,9 +89,9 @@ struct Swapchain {
 
 namespace gl {
 
-struct FramebufferSwapchain : public Swapchain<xr::SwapchainImageOpenGLKHR> {
+struct FramebufferSwapchain : public ::xrs::Swapchain<::xr::SwapchainImageOpenGLKHR> {
 private:
-    using Parent = Swapchain;
+    using Parent = xrs::Swapchain<xr::SwapchainImageOpenGLKHR>;
 
 public:
     void createSwapchain(const xr::Session& session, const xr::SwapchainCreateInfo& ci) override {
@@ -116,7 +118,7 @@ public:
         Parent::destroy();
     }
 
-    xr::SwapchainImageOpenGLKHR& acquireImage() override {
+    ::xr::SwapchainImageOpenGLKHR& acquireImage() override {
         auto& result = Parent::acquireImage();
         glNamedFramebufferTexture(object, GL_COLOR_ATTACHMENT0, result.image, 0);
         return result;

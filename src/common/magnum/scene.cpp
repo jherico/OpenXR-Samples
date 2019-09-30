@@ -1,7 +1,6 @@
 #include "scene.hpp"
 
 #include <openxr/openxr.hpp>
-#include <xrs/glm.hpp>
 
 #pragma warning(push)
 #pragma warning(disable : 4251)
@@ -54,7 +53,8 @@
 
 #include <basis.hpp>
 #include <assets.hpp>
-#include <magnum/glm.hpp>
+
+#include <magnum/math.hpp>
 
 namespace xr_examples { namespace magnum { namespace impl {
 
@@ -565,7 +565,7 @@ struct Scene::Private {
         xr::for_each_side_index([&](uint32_t eyeIndex) {
             framebuffer.setViewport(eyeIndex);
             auto& camera = *eyesData[eyeIndex].camera;
-            camera.setViewport(fromGlm(framebuffer.getEyeSize()));
+            camera.setViewport(fromXr(framebuffer.getEyeSize()));
             camera.draw(drawables);
         });
         framebuffer.bindDefault();
@@ -610,7 +610,7 @@ void Scene::updateHands(const xr_examples::HandStates& handStates) {
 
         auto& handData = d->handsData[eyeIndex];
         float scale = 0.01f + (0.05f * handState.squeeze);
-        handData.gripRoot->setTransformation(fromGlm(handState.grip) * rot * Matrix4::scaling({ scale, scale, scale }));
+        handData.gripRoot->setTransformation(fromXr(handState.grip) * rot * Matrix4::scaling({ scale, scale, scale }));
 
         if (eyeIndex == 0) {
             Vector3 playerTranslate{ handState.thumb.x, 0, -handState.thumb.y };
@@ -622,7 +622,7 @@ void Scene::updateHands(const xr_examples::HandStates& handStates) {
 
         scale = 0.01f;
         float translate = handState.trigger * 0.1f;
-        handData.aimRoot->setTransformation(fromGlm(handState.aim) * Matrix4::translation({ 0.0f, 0.0f, -translate }) *
+        handData.aimRoot->setTransformation(fromXr(handState.aim) * Matrix4::translation({ 0.0f, 0.0f, -translate }) *
                                             Matrix4::scaling({ scale, scale, scale }));
         handData.gripDrawable->_color = Color4{ fabs(handState.thumb.x), fabs(handState.thumb.y), 0.0 };
     });
@@ -632,7 +632,7 @@ void Scene::updateEyes(const xr_examples::EyeStates& eyeStates) {
     xr::for_each_side_index([&](uint32_t eyeIndex) {
         const auto& eyeState = eyeStates[eyeIndex];
         auto& eyeData = d->eyesData[eyeIndex];
-        eyeData.camera->setProjectionMatrix(fromGlm(eyeState.projection));
-        eyeData.cameraObject->setTransformation(fromGlm(eyeState.pose));
+        eyeData.camera->setProjectionMatrix(fromXrGL(eyeState.fov));
+        eyeData.cameraObject->setTransformation(fromXr(eyeState.pose));
     });
 }
