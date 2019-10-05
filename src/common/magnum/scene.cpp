@@ -5,6 +5,8 @@
 #pragma warning(push)
 #pragma warning(disable : 4251)
 #pragma warning(disable : 4267)
+#pragma warning(disable : 4244)
+
 #include <Corrade/Containers/Array.h>
 #include <Corrade/Containers/Optional.h>
 #include <Corrade/Containers/Reference.h>
@@ -26,6 +28,7 @@
 #include <Magnum/GL/PixelFormat.h>
 #include <Magnum/ResourceManager.h>
 #include <Magnum/MeshTools/Compile.h>
+#include <Magnum/Primitives/Line.h>
 #include <Magnum/SceneGraph/Camera.h>
 #include <Magnum/SceneGraph/Drawable.h>
 #include <Magnum/SceneGraph/MatrixTransformation3D.h>
@@ -70,6 +73,26 @@ using SceneResourceManager = Magnum::ResourceManager<GL::Buffer,
                                                      GL::Texture2D,
                                                      GL::CubeMapTexture,
                                                      GL::AbstractShaderProgram>;
+
+class FlatDrawable : public SceneGraph::Drawable3D {
+public:
+    explicit FlatDrawable(Object3D& object,
+                             Shaders::Flat3D& shader,
+                             GL::Mesh& mesh,
+                             const Color4& color,
+                             SceneGraph::DrawableGroup3D& group) :
+        SceneGraph::Drawable3D{ object, &group },
+        _shader(shader), _mesh(mesh), _color{ color } {}
+
+    void draw(const Matrix4& transformationMatrix, SceneGraph::Camera3D& camera) override {
+		_shader.setColor(_color).setTransformationProjectionMatrix(camera.projectionMatrix() * transformationMatrix);
+        _mesh.draw(_shader);
+    }
+
+    Shaders::Flat3D& _shader;
+    GL::Mesh& _mesh;
+    Color4 _color;
+};
 
 class ColoredDrawable : public SceneGraph::Drawable3D {
 public:
@@ -155,6 +178,25 @@ struct Shared {
                 .set(cube.key(), mesh, ResourceDataState::Final, ResourcePolicy::Resident);
         }
         return cube;
+    }
+
+	Resource<GL::Mesh> buildLinePrimitive() {
+        Resource<GL::Mesh> line = resourceManager.get<GL::Mesh>("line");
+        if (!line) {
+			Trade::MeshData3D lineData = Primitives::line3D({ 0, 0, 0 }, { 0, 0, -10000 });
+
+            GL::Buffer* buffer = new GL::Buffer;
+            buffer->setData(lineData.positions(0), GL::BufferUsage::StaticDraw);
+
+            GL::Mesh* mesh = new GL::Mesh;
+            mesh->setPrimitive(lineData.primitive())
+                .setCount((Magnum::Int)2)
+                .addVertexBuffer(*buffer, 0, Shaders::Phong::Position{});
+
+            resourceManager.set("line-buffer", buffer, ResourceDataState::Final, ResourcePolicy::Resident)
+                .set(line.key(), mesh, ResourceDataState::Final, ResourcePolicy::Resident);
+        }
+        return line;
     }
 
     void shutdown() { resourceManager.clear(); }
@@ -350,10 +392,12 @@ struct Scene::Private {
 
         Object3D* aimRoot{ new Object3D };
         ColoredDrawable* aimDrawable{ nullptr };
+		FlatDrawable* lineDrawable{ nullptr };
     };
     std::array<HandData, 2> handsData;
 
-    Shaders::Phong flatShader, coloredShader, texturedShader{ Shaders::Phong::Flag::DiffuseTexture };
+    Shaders::Phong coloredShader, texturedShader{ Shaders::Phong::Flag::DiffuseTexture };
+	Shaders::Flat3D flatShader;
 
     std::vector<AABB> meshExtents;
     Containers::Array<Containers::Optional<GL::Mesh>> meshes;
@@ -389,7 +433,6 @@ struct Scene::Private {
         GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
         coloredShader.setAmbientColor(0x111111_rgbf).setSpecularColor(0xffffff_rgbf).setShininess(80.0f);
         texturedShader.setAmbientColor(0x111111_rgbf).setSpecularColor(0x111111_rgbf).setShininess(80.0f);
-        flatShader.setAmbientColor(0x111111_rgbf).setSpecularColor(0xffffff_rgbf).setShininess(80.0f);
     }
 
     void setupBaseScene() {
@@ -412,17 +455,19 @@ struct Scene::Private {
     void setupHands() {
         auto& resourceManager = Shared::get().resourceManager;
         Resource<GL::Mesh> cubeMesh = Shared::get().buildCubePrimitive();
+		Resource<GL::Mesh> lineMesh = Shared::get().buildLinePrimitive();
         xr::for_each_side_index([&](uint32_t eyeIndex) {
             auto color = eyeIndex == 0 ? 0xff0000_rgbf : 0x00ff00_rgbf;
             auto& handData = handsData[eyeIndex];
 
             handData.gripRoot = new Object3D(playerRoot);
             handData.gripRoot->setParent(playerRoot);
-            handData.gripDrawable = new ColoredDrawable(*handData.gripRoot, flatShader, *cubeMesh, color, drawables);
+            handData.gripDrawable = new ColoredDrawable(*handData.gripRoot, coloredShader, *cubeMesh, color, drawables);
 
             handData.aimRoot = new Object3D(playerRoot);
             handData.aimRoot->setParent(playerRoot);
-            handData.aimDrawable = new ColoredDrawable(*handData.aimRoot, flatShader, *cubeMesh, color, drawables);
+            handData.aimDrawable = new ColoredDrawable(*handData.aimRoot, coloredShader, *cubeMesh, color, drawables);
+			handData.lineDrawable = new FlatDrawable(*handData.aimRoot, flatShader, *lineMesh, color, drawables);
         });
     }
 
@@ -554,7 +599,7 @@ struct Scene::Private {
         }
 
         for (std::size_t id : objectData->children()) {
-            extent += addObject(importer, object, id);
+            extent += addObject(importer, object, (Magnum::UnsignedInt)id);
         }
         return extent;
     }

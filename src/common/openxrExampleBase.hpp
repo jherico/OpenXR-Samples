@@ -34,8 +34,11 @@
 
 #include <xrs/context.hpp>
 #include <xrs/swapchain.hpp>
+#include <gl/framebuffer.hpp>
+#include <gl/debug.hpp>
 #include <interfaces.hpp>
 #include <assets.hpp>
+#include <glad.hpp>
 
 namespace xr_examples {
 
@@ -51,13 +54,15 @@ public:
     EyeStates eyeStates;
     float fpsTimer{ 0.0f };
     float lastFps{ 0.0f };
+    float nearZ{ 0.01f };
+    float farZ{ 1000.0f };
 
     OpenXrExampleBase() {
         // Static initialization for whatever our backed (Qt, Magnum, etc) needs
         WindowType::init();
     }
 
-    ~OpenXrExampleBase() {
+    virtual ~OpenXrExampleBase() {
 #if !defined(DISABLE_XR)
         xrContext.destroy();
 #endif
@@ -79,6 +84,7 @@ public:
 
     xrs::Context xrContext;
     void prepareXrInstance() {
+        xrContext.requiredExtensions.insert(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
         // Startup the OpenXR instance and get a system ID and view configuration
         // All of this is independent of the interaction between Xr and the
         // eventual Graphics API used for rendering
@@ -111,14 +117,15 @@ public:
 #if defined(XR_USE_GRAPHICS_API_OPENGL)
         window.makeCurrent();
         window.setSwapInterval(0);
-        gladLoadGL();
+        glad::init();
+		gl::enableDebugLogging();
 #endif
 
         framebuffer.create(renderTargetSize);
     }
 
     SceneType scene;
-    void prepareScene() {
+    virtual void prepareScene() {
         scene.create();
         scene.loadModel(assets::getAssetPathString("models/2CylinderEngine.glb"));
         scene.setCubemap(assets::getAssetPathString("yokohama.basis"));
@@ -177,24 +184,63 @@ public:
         space = xrSession.createReferenceSpace(xr::ReferenceSpaceCreateInfo{ xr::ReferenceSpaceType::Local });
     }
 
+    std::vector<xr::CompositionLayerBaseHeader*> layersPointers;
+
+#define USE_DEPTH_INFO 0
     std::array<xr::CompositionLayerProjectionView, 2> projectionLayerViews;
     xr::CompositionLayerProjection projectionLayer{ {}, {}, 2, projectionLayerViews.data() };
-    xrs::gl::FramebufferSwapchain projectionSwapchain;
-    std::vector<xr::CompositionLayerBaseHeader*> layersPointers;
+    xr::Swapchain projectionColorSwapchain;
+
+#if USE_DEPTH_INFO
+    std::array<xr::CompositionLayerDepthInfoKHR, 2> projectionDeptInfos;
+    xr::Swapchain projectionDepthSwapchain;
+#endif
+
+    gl::SwapchainFramebuffer projectionFramebuffer;
+
     void preapreXrLayers() {
-        auto referenceSpaces = xrContext.session.enumerateReferenceSpaces();
-        projectionSwapchain.create(xrSession, renderTargetSize);
+        xr::SwapchainCreateInfo ci;
+		ci.usageFlags = xr::SwapchainUsageFlagBits::TransferDst;
+		ci.format = xrs::DEFAULT_SWAPCHAIN_FORMAT;
+		ci.width = (uint32_t)renderTargetSize.width;
+		ci.height = (uint32_t)renderTargetSize.height;
+		ci.arraySize = 1;
+		ci.sampleCount = 1;
+		ci.faceCount = 1;
+		ci.mipCount = 1;
+
+        projectionColorSwapchain = xrSession.createSwapchain(ci);
+        projectionFramebuffer.setSwapchain(projectionColorSwapchain);
+
+#if USE_DEPTH_INFO
+        ci.format = xrs::DEFAULT_SWAPCHAIN_DEPTH_FORMAT;
+        projectionDepthSwapchain = xrSession.createSwapchain(ci);
+        projectionFramebuffer.setDepthSwapchain(projectionDepthSwapchain);
+#endif
+
+		projectionFramebuffer.create(renderTargetSize);
         projectionLayer.space = space;
-        projectionLayer.viewCount = 2;
-        projectionLayer.views = projectionLayerViews.data();
         // Finish setting up the layer submission
         xr::for_each_side_index([&](uint32_t eyeIndex) {
-            auto& layerView = projectionLayerViews[eyeIndex];
-            layerView.subImage.swapchain = projectionSwapchain.swapchain;
-            layerView.subImage.imageRect.extent = { (int32_t)renderTargetSize.width / 2, (int32_t)renderTargetSize.height };
+			xr::Rect2Di imageRect;
+			imageRect.extent = { (int32_t)renderTargetSize.width / 2, (int32_t)renderTargetSize.height };
             if (eyeIndex == 1) {
-                layerView.subImage.imageRect.offset.x = layerView.subImage.imageRect.extent.width;
+                imageRect.offset.x = imageRect.extent.width;
             }
+
+			auto& layerView = projectionLayerViews[eyeIndex];
+            layerView.subImage.swapchain = projectionColorSwapchain;
+			layerView.subImage.imageRect = imageRect;
+
+#if USE_DEPTH_INFO
+			auto& depthInfo = projectionDeptInfos[eyeIndex];
+            depthInfo.maxDepth = 1.0f;
+            depthInfo.farZ = farZ;
+            depthInfo.nearZ = nearZ;
+            depthInfo.subImage.swapchain = projectionDepthSwapchain;
+			depthInfo.subImage.imageRect = imageRect;
+			layerView.next = &depthInfo;
+#endif
         });
         layersPointers.push_back(&projectionLayer);
     }
@@ -365,13 +411,41 @@ public:
 
                 // Copy the eye states to the projection layer.
                 // Remember when doing asynchronous rendering to carry the eye states to the rendering layer
-                auto& projectionLayerView = projectionLayerViews[eyeIndex];
-                projectionLayerView.fov = viewState.fov;
-                projectionLayerView.pose = viewState.pose;
+                {
+                    auto& projectionLayerView = projectionLayerViews[eyeIndex];
+                    projectionLayerView.fov = viewState.fov;
+                    projectionLayerView.pose = viewState.pose;
+                }
             });
         }
 
         return true;
+    }
+
+    virtual void renderSceneLayer() final { scene.render(framebuffer); }
+
+    virtual void blitToProjection() {
+        // Blit to the swapchain
+        projectionFramebuffer.bind();
+        framebuffer.blitTo(projectionFramebuffer.fbo, renderTargetSize);
+        projectionFramebuffer.bindDefault();
+        projectionFramebuffer.advance();
+    }
+
+    virtual void renderExtraLayers() {}
+
+    virtual void blitToWindow() {
+        framebuffer.blitTo(0, window.getSize());
+        window.swapBuffers();
+    }
+
+    virtual void submitFrame() {
+        xr::FrameEndInfo frameEndInfo;
+        frameEndInfo.displayTime = xrContext.frameState.predictedDisplayTime;
+        frameEndInfo.environmentBlendMode = xr::EnvironmentBlendMode::Opaque;
+        frameEndInfo.layerCount = static_cast<uint32_t>(layersPointers.size());
+        frameEndInfo.layers = layersPointers.data();
+        xrContext.session.endFrame(frameEndInfo);
     }
 
     virtual void render() {
@@ -388,33 +462,21 @@ public:
             return;
         }
 
-        scene.render(framebuffer);
+        renderSceneLayer();
+        blitToProjection();
 
-        // Blit to the swapchain
-        {
-            projectionSwapchain.acquireImage();
-            projectionSwapchain.waitImage();
-            framebuffer.blitTo(projectionSwapchain.object, renderTargetSize);
-            projectionSwapchain.releaseImage();
-        }
+        renderExtraLayers();
 
         // Submit the image layers
-        {
-            xr::FrameEndInfo frameEndInfo;
-            frameEndInfo.displayTime = xrContext.frameState.predictedDisplayTime;
-            frameEndInfo.environmentBlendMode = xr::EnvironmentBlendMode::Opaque;
-            frameEndInfo.layerCount = static_cast<uint32_t>(layersPointers.size());
-            frameEndInfo.layers = layersPointers.data();
-            xrContext.session.endFrame(frameEndInfo);
-        }
+        submitFrame();
 
         // Blit to the window
-        framebuffer.blitTo(0, window.getSize());
-        window.swapBuffers();
+        blitToWindow();
     }
 
     virtual std::string getWindowTitle() {
-        static const std::string device = (const char*)glGetString(GL_VERSION);
+        //static const std::string device = (const char*)glGetString(GL_VERSION);
+        static std::string device;
         return "OpenXR SDK Example " + device + " - " + std::to_string((int)lastFps) + " fps";
     }
 

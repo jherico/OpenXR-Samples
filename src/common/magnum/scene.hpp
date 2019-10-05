@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef USE_MAGNUM
-
 #include <interfaces.hpp>
 #include <memory>
 
@@ -25,4 +23,3 @@ private:
 };
 
 }}  // namespace xr_examples::magnum
-#endif

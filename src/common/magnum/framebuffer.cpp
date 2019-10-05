@@ -50,7 +50,7 @@ void magnum::Framebuffer::create(const xr::Extent2Di& size) {
     d = std::make_shared<Private>(fromXr(size));
 }
 
-void magnum::Framebuffer::clear() {
+void magnum::Framebuffer::clear(const xr::Color4f& color, float depth, int stencil) {
     d->object.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth | GL::FramebufferClear::Stencil);
 }
 

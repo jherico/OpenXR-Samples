@@ -26,14 +26,14 @@
 namespace xr {
 
 namespace color {
-static constexpr Color4f Red = { 1.0f, 0.0f, 0.0f, 1.0f };
-static constexpr Color4f Green = { 0.0f, 1.0f, 0.0f, 1.0f };
-static constexpr Color4f Blue = { 0.0f, 0.0f, 1.0f, 1.0f };
-static constexpr Color4f Yellow = { 1.0f, 1.0f, 0.0f, 1.0f };
-static constexpr Color4f Purple = { 1.0f, 0.0f, 1.0f, 1.0f };
-static constexpr Color4f Cyan = { 0.0f, 1.0f, 1.0f, 1.0f };
-static constexpr Color4f LightGrey = { 0.7f, 0.7f, 0.7f, 1.0f };
-static constexpr Color4f DarkGrey = { 0.3f, 0.3f, 0.3f, 1.0f };
+static constexpr Color4f Red { 1.0f, 0.0f, 0.0f, 1.0f };
+static constexpr Color4f Green { 0.0f, 1.0f, 0.0f, 1.0f };
+static constexpr Color4f Blue { 0.0f, 0.0f, 1.0f, 1.0f };
+static constexpr Color4f Yellow { 1.0f, 1.0f, 0.0f, 1.0f };
+static constexpr Color4f Purple { 1.0f, 0.0f, 1.0f, 1.0f };
+static constexpr Color4f Cyan { 0.0f, 1.0f, 1.0f, 1.0f };
+static constexpr Color4f LightGrey { 0.7f, 0.7f, 0.7f, 1.0f };
+static constexpr Color4f DarkGrey { 0.3f, 0.3f, 0.3f, 1.0f };
 
 }  // namespace color
 

@@ -4,20 +4,20 @@
 
 #include <openxr/openxr.hpp>
 
-#if defined(XR_USE_GRAPHICS_API_OPENGL)
-#include <glad/glad.h>
-#endif
-
 namespace xrs {
 
 #if defined(XR_USE_GRAPHICS_API_VULKAN)
 using DefaultSwapchainImageType = xr::SwapchainImageVulkanKHR;
 using SwapchainFormatType = vk::Format;
 constexpr vk::Format DEFAULT_SWAPCHAIN_FORMAT{ vk::Format::eB8G8R8A8Srgb };
+constexpr vk::Format DEFAULT_SWAPCHAIN_DEPTH_FORMAT{ vk::Format::eB8G8R8A8Srgb };
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
 using DefaultSwapchainImageType = xr::SwapchainImageOpenGLKHR;
 using SwapchainFormatType = uint32_t;
-constexpr GLenum DEFAULT_SWAPCHAIN_FORMAT{ GL_SRGB8_ALPHA8 };
+// GL_RGBA8
+constexpr uint32_t DEFAULT_SWAPCHAIN_FORMAT{ 0x8C43 };
+// GL_DEPTH24_STENCIL8
+constexpr uint32_t DEFAULT_SWAPCHAIN_DEPTH_FORMAT{ 0x88F0 };
 #endif
 
 template <typename SwapchainImageType = DefaultSwapchainImageType>
@@ -94,42 +94,23 @@ private:
     using Parent = xrs::Swapchain<xr::SwapchainImageOpenGLKHR>;
 
 public:
-    void createSwapchain(const xr::Session& session, const xr::SwapchainCreateInfo& ci) override {
-        Parent::createSwapchain(session, ci);
-        glCreateFramebuffers(1, &object);
-        glCreateRenderbuffers(1, &depthStencil);
-        glBindRenderbuffer(GL_RENDERBUFFER, depthStencil);
-        if (createInfo.sampleCount == 1) {
-            glNamedRenderbufferStorage(depthStencil, GL_DEPTH24_STENCIL8, ci.width, ci.height);
-        } else {
-            glNamedRenderbufferStorageMultisample(depthStencil, ci.sampleCount, GL_DEPTH24_STENCIL8, ci.width, ci.height);
-        }
-        glNamedFramebufferRenderbuffer(object, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencil);
-    }
+    enum Target
+    {
+        Draw = 1,
+        Read = 2,
+    };
 
-    void destroy() override {
-        glDeleteFramebuffers(1, &object);
-        object = 0;
+	void createSwapchain(const xr::Session& session, const xr::SwapchainCreateInfo& ci) override;
+    void destroy() override;
+	::xr::SwapchainImageOpenGLKHR& acquireImage() override;
+    void releaseImage() override;
+	void bind(Target target);
+	void clear(const xr::Color4f& color = { 0, 0, 0, 1 });
+	static void bindDefault(Target target);
+	void createFramebuffer();
+	void destroyFramebuffer();
 
-        glDeleteRenderbuffers(1, &depthStencil);
-        depthStencil = 0;
-
-        // stuff
-        Parent::destroy();
-    }
-
-    ::xr::SwapchainImageOpenGLKHR& acquireImage() override {
-        auto& result = Parent::acquireImage();
-        glNamedFramebufferTexture(object, GL_COLOR_ATTACHMENT0, result.image, 0);
-        return result;
-    }
-
-    void releaseImage() override {
-        glNamedFramebufferTexture(object, GL_COLOR_ATTACHMENT0, 0, 0);
-        Parent::releaseImage();
-    }
-
-    uint32_t object{ 0 };
+	uint32_t fbo{ 0 };
     uint32_t depthStencil{ 0 };
 };
 

@@ -14,27 +14,38 @@
 namespace xr_examples {
 
 struct HandState {
-    bool thumbClicked{ false };
     xr::Posef grip;
     xr::Posef aim;
     float squeeze{ -1.0 };
+	bool squeezeTouched{ false };
     float trigger{ -1.0 };
+	bool triggerTouched{ false };
     xr::Vector2f thumb;
+    bool thumbClicked{ false };
+    bool thumbTouched{ false };
 };
+
 using HandStates = std::array<HandState, 2>;
 
 using EyeState = xr::View;
 using EyeStates = std::array<EyeState, 2>;
 
-struct Window {
+struct Context {
+    using Pointer = std::shared_ptr<Context>;
+
+    virtual void makeCurrent() const = 0;
+    virtual void doneCurrent() const = 0;
+    virtual void destroy() {}
+};
+
+struct Window : public Context {
     virtual void create(const xr::Extent2Di& size) = 0;
-    virtual void makeCurrent() = 0;
-    virtual void doneCurrent() = 0;
-    virtual void setSwapInterval(uint32_t swapInterval) = 0;
-    virtual void setTitle(const ::std::string& title) = 0;
+    virtual void setSwapInterval(uint32_t swapInterval) const = 0;
+    virtual void setTitle(const ::std::string& title) const = 0;
     virtual void runWindowLoop(const ::std::function<void()>& handler) = 0;
-    virtual void swapBuffers() = 0;
+    virtual void swapBuffers() const = 0;
     virtual void requestClose() = 0;
+    virtual Context::Pointer createOffscreenContext() const { return {}; }
     virtual xr::Extent2Di getSize() const = 0;
 };
 
@@ -45,22 +56,32 @@ struct Framebuffer {
         Read = 2,
     };
 
-    void blitTo(uint32_t dest, const xr::Extent2Di& destSize);
-    void blitTo(uint32_t dest, const xr::Extent2Di& destSize, uint32_t mask, uint32_t filter);
+    enum BlitMask
+    {
+        Depth = 0x00000100,
+        Stencil = 0x00000400,
+        Color = 0x00004000
+    };
 
-    static void blit(uint32_t source, const xr::Extent2Di& sourceSize, uint32_t dest, const xr::Extent2Di& destSize);
+    enum Filter
+    {
+        Nearest = 0x2600,
+        Linear = 0x2601,
+    };
+
+    void blitTo(uint32_t dest, const xr::Extent2Di& destSize, uint32_t mask = Color, Filter filter = Nearest);
 
     static void blit(uint32_t source,
                      const xr::Extent2Di& sourceSize,
                      uint32_t dest,
                      const xr::Extent2Di& destSize,
-                     uint32_t mask,
-                     uint32_t filter);
+                     uint32_t mask = Color,
+                     Filter filter = Nearest);
 
     virtual void create(const xr::Extent2Di& size) = 0;
-	virtual void destroy() = 0;
+    virtual void destroy() = 0;
     virtual void bind(Target target = Draw) = 0;
-    virtual void clear() = 0;
+    virtual void clear(const xr::Color4f& color = { 0, 0, 0, 1 }, float depth = 1.0f, int stencil = 0) = 0;
     virtual void bindDefault(Target target = Draw) = 0;
     virtual void setViewport(const xr::Rect2Di& viewport) = 0;
     virtual uint32_t id() = 0;

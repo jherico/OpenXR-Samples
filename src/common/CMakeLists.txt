@@ -26,6 +26,7 @@ target_basisu()
 target_glad()
 target_qt()
 target_magnum()
+target_vulkan()
 
 if (Qt5_FOUND)
     set(CMAKE_AUTOMOC OFF)

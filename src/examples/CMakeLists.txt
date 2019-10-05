@@ -30,8 +30,6 @@ foreach(EXAMPLE ${EXAMPLES})
     target_compile_definitions(${TARGET_NAME} PRIVATE EXAMPLE_NAME="${EXAMPLE_NAME}")
 	# FIXME remove this when the openxr.hpp header no longer freaks out
 	target_compile_definitions(${TARGET_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
-	# FIXME remove this when Oculus starts working with debug utils ext
-    target_compile_definitions(${TARGET_NAME} PRIVATE SUPPRESS_DEBUG_UTILS)
 
     # String formatting library
     target_fmt()
@@ -41,11 +39,15 @@ foreach(EXAMPLE ${EXAMPLES})
     target_openxr()
     # Cross-platform window management
     # target_glfw3()
+    # target_sdl2()
     # Cross-platform UI
+	target_imgui()
     # GPU compressed images
     target_basisu()
     # OpenGL function loader
 	target_glad()
+
+	target_glfw3()
 
     if ((${TARGET_NAME} MATCHES ".*_magnum_.*" ) OR (${TARGET_NAME} MATCHES "^magnum_.*" ))
         target_magnum()

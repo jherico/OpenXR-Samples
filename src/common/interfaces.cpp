@@ -9,10 +9,7 @@
 
 using namespace xr_examples;
 
-void Framebuffer::blitTo(uint32_t dest, const xr::Extent2Di& destSize) {
-    blitTo(dest, destSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-}
-void Framebuffer::blitTo(uint32_t dest, const xr::Extent2Di& destSize, uint32_t mask, uint32_t filter) {
+void Framebuffer::blitTo(uint32_t dest, const xr::Extent2Di& destSize, uint32_t mask, Filter filter) {
     blit(id(), getSize(), dest, destSize, mask, filter);
 }
 
@@ -21,13 +18,9 @@ void Framebuffer::blit(uint32_t source,
                        uint32_t dest,
                        const xr::Extent2Di& destSize,
                        uint32_t mask,
-                       uint32_t filter) {
+                       Filter filter) {
     glBlitNamedFramebuffer(source, dest,                               //
                            0, 0, sourceSize.width, sourceSize.height,  //
                            0, 0, destSize.width, destSize.height,      //
                            mask, filter);
-}
-
-void Framebuffer::blit(uint32_t source, const xr::Extent2Di& sourceSize, uint32_t dest, const xr::Extent2Di& destSize) {
-    blit(source, sourceSize, dest, destSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }

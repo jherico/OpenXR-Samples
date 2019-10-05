@@ -226,8 +226,8 @@ struct OpenXrExample {
         // Log the instance properties
         xr::InstanceProperties instanceProperties = instance.getInstanceProperties();
         LOG_INFO("OpenXR Runtime {} version {}.{}.{}",  //
-                 (const char*)instanceProperties.runtimeName, (uint32_t)instanceProperties.runtimeVersion.major,
-                 (uint32_t)instanceProperties.runtimeVersion.minor, (uint32_t)instanceProperties.runtimeVersion.patch);
+                 (const char*)instanceProperties.runtimeName, instanceProperties.runtimeVersion.major(),
+                 instanceProperties.runtimeVersion.minor(), instanceProperties.runtimeVersion.patch());
     }
 
     xr::SystemId systemId;
@@ -294,8 +294,8 @@ struct OpenXrExample {
         SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, graphicsRequirements.maxApiVersionSupported.major);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, graphicsRequirements.maxApiVersionSupported.minor);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, graphicsRequirements.maxApiVersionSupported.major());
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, graphicsRequirements.maxApiVersionSupported.minor());
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 

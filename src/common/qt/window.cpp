@@ -19,6 +19,8 @@ extern char** g_argv;
 extern QOpenGLContext* qt_gl_global_share_context();
 extern void qt_gl_set_global_share_context(QOpenGLContext* context);
 
+xr_examples::Window* g_window{ nullptr };
+
 namespace xr_examples { namespace qt {
 
 const QSurfaceFormat& getDefaultSurfaceFormat() {
@@ -78,6 +80,7 @@ struct Window::Private {
 };
 
 Window::Window() {
+	g_window = this;
 }
 
 Window::~Window() {
@@ -94,16 +97,15 @@ void Window::create(const xr::Extent2Di& size) {
     d->create(size);
 }
 
-void Window::makeCurrent() {
+void Window::makeCurrent() const {
     d->context->makeCurrent(d->window);
 }
 
-void Window::doneCurrent() {
+void Window::doneCurrent() const {
     d->context->doneCurrent();
 }
 
-void Window::setSwapInterval(uint32_t swapInterval) {
-	
+void Window::setSwapInterval(uint32_t swapInterval) const {
 }
 
 void* Window::getNativeWindowHandle() {
@@ -120,11 +122,11 @@ void Window::requestClose() {
     QCoreApplication::quit();
 }
 
-void Window::swapBuffers() {
+void Window::swapBuffers() const {
     d->context->swapBuffers(d->window);
 }
 
-void Window::setTitle(const std::string& title) {
+void Window::setTitle(const std::string& title) const {
     d->window->setTitle(title.c_str());
 }
 

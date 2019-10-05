@@ -18,29 +18,21 @@
 
 #include <QtGui/QOffscreenSurface>
 #include <QtGui/QOpenGLContext>
-#include <QtGui/QOpenGLContext>
 #include <QtGui/QOpenGLDebugLogger>
 #include <QtGui/QSurfaceFormat>
 #include <QtGui/QOpenGLDebugLogger>
 #include <QtGui/qopenglfunctions_4_5_core.h>
-#include <qt/math.hpp>
 
 #include <gl/framebuffer.hpp>
 
-extern QOpenGLContext* qt_gl_global_share_context();
-extern void qt_gl_set_global_share_context(QOpenGLContext* context);
+#include <qt/math.hpp>
+#include <qt/gl.hpp>
+
 
 namespace xr_examples { namespace qt {
 
 QObject* g_sceneSurface;
 QOpenGLContext* g_sceneContext;
-using GLF = QOpenGLFunctions_4_5_Core;
-GLF& getFunctions() {
-    static GLF glf;
-    static std::once_flag once;
-    std::call_once(once, [&] { glf.initializeOpenGLFunctions(); });
-    return glf;
-}
 
 class SizedOffscreenSurface : public QOffscreenSurface {
 public:
@@ -132,8 +124,11 @@ void Framebuffer::bind(Target target) {
     auto gltarget = target == Draw ? GL_DRAW_FRAMEBUFFER : GL_READ_FRAMEBUFFER;
     glf.glBindFramebuffer(gltarget, d->offscreenFbo);
 }
-void Framebuffer::clear() {
+void Framebuffer::clear(const xr::Color4f& color, float depth, int stencil) {
     auto& glf = getFunctions();
+	glf.glClearColor(color.r, color.g, color.b, color.a);
+	glf.glClearDepth(depth);
+	glf.glClearStencil(stencil);
     glf.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
