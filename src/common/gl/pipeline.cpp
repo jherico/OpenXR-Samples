@@ -170,13 +170,3 @@ void Pipeline::bind() {
     glUseProgram(program);
     glBindVertexArray(vao);
 }
-
-//glBindVertexArray(vertex_array_object);
-//glBindBuffer(GL_ARRAY_BUFFER, g_VboHandle);
-//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_ElementsHandle);
-//glEnableVertexAttribArray(ATTR_POS);
-//glEnableVertexAttribArray(ATTR_UV);
-//glEnableVertexAttribArray(ATTR_COLOR);
-//glVertexAttribPointer(ATTR_POS, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, pos));
-//glVertexAttribPointer(ATTR_UV, 2, GL_FLOAT, GL_FALSE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, uv));
-//glVertexAttribPointer(ATTR_COLOR, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ImDrawVert), (GLvoid*)offsetof(ImDrawVert, col));

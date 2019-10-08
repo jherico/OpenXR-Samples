@@ -12,7 +12,7 @@
 #include <Windows.h>
 #elif defined(__ANDROID__)
 #define XR_USE_PLATFORM_ANDROID
-#elif
+#else
 #define XR_USE_PLATFORM_XLIB
 #endif
 
@@ -50,7 +50,7 @@ static XrBool32 debugCallback(XrDebugUtilsMessageSeverityFlagsEXT sev_,
                               XrDebugUtilsMessageTypeFlagsEXT type_,
                               const XrDebugUtilsMessengerCallbackDataEXT* data_,
                               void* userData) {
-    LOG_FORMATTED((logging::Level)sev_, "{}: message", data_->functionName, data_->message);
+    LOG_FORMATTED((logging::Level)sev_, "{}: {}", data_->functionName, data_->message);
     return XR_TRUE;
 }
 
