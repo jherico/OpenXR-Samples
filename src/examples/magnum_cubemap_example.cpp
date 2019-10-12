@@ -12,14 +12,14 @@ using namespace xr_examples;
 
 class OpenXrExample : public OpenXrExampleBase<magnum::Window, magnum::Framebuffer, magnum::Scene> {
 	using Parent = OpenXrExampleBase<magnum::Window, magnum::Framebuffer, magnum::Scene>;
-	struct Cylinder {
-		xr::CompositionLayerCylinderKHR layer;
+	struct Cubemap {
+		xr::CompositionLayerCubeKHR layer;
 		xrs::Swapchain<> swapchain;
 
 		void prepare(const xr::Session& xrSession) {
 			auto cubemapData = assets::getAssetContentsBinary("yokohama.basis");
 			BasisReader cubemapReader{ cubemapData.data(), cubemapData.size() };
-
+			auto formats = xrSession.enumerateSwapchainFormats();
 			xr::SwapchainCreateInfo ci;
 			ci.createFlags = xr::SwapchainCreateFlagBits::StaticImage;
 			ci.height = cubemapReader.imageInfo.m_orig_height;
@@ -29,7 +29,8 @@ class OpenXrExample : public OpenXrExampleBase<magnum::Window, magnum::Framebuff
 			ci.mipCount = 1;
 			ci.arraySize = 1;
 			ci.usageFlags = xr::SwapchainUsageFlagBits::TransferDst;
-			ci.format = xrs::DEFAULT_SWAPCHAIN_FORMAT;
+			ci.format = GL_RGBA8;
+			// Currently broken on Oculus: "ovrLayerType_Cube does not support ovrLayerFlag_TextureOriginAtBottomLeft. Disabling layer 0"
 			swapchain.createSwapchain(xrSession, ci);
 			{
 				std::vector<uint8_t> imageData;
@@ -42,23 +43,20 @@ class OpenXrExample : public OpenXrExampleBase<magnum::Window, magnum::Framebuff
 				glBindTexture(GL_TEXTURE_2D, 0);
 				swapchain.releaseImage();
 			}
-			layer.radius = 20.0f;
-			layer.aspectRatio = 1.0f;
-			layer.centralAngle = 1.0f;
-			layer.subImage.imageRect = { { 0, 0 }, { 1, 1 } };
-			layer.subImage.swapchain = swapchain.swapchain;
+			layer.swapchain = swapchain.swapchain;
 		}
-	} cylinder;
+	} cubemap;
 
 
 	void prepare() override {
 		// Use of the Cylinder layer requires the extension
-		xrContext.requiredExtensions.insert(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
+		xrContext.requiredExtensions.insert(XR_KHR_COMPOSITION_LAYER_CUBE_EXTENSION_NAME);
 		Parent::prepare();
 		{
-			cylinder.layer.space = space;
+			cubemap.prepare(xrSession);
+			cubemap.layer.space = space;
 			layersPointers.clear();
-			layersPointers.insert(layersPointers.begin(), &cylinder.layer);
+			layersPointers.insert(layersPointers.begin(), &cubemap.layer);
 		}
 	}
 
