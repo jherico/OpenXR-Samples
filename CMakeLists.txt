@@ -6,8 +6,7 @@ set(NAME OpenXRExamples)
 # Dependency management
 include(${CMAKE_SOURCE_DIR}/cmake/ezvcpkg/ezvcpkg.cmake)
 ezvcpkg_fetch(
-    REPO jherico/vcpkg
-    COMMIT b1544c25e1faa12a885d2aea49c46bcbb7f8d029
+    COMMIT fa7a3eaec35409d60dbc456d5229b54c192f11de
     PACKAGES assimp basisu fmt glad glm glfw imgui openxr-loader vulkan magnum "magnum-plugins[tinygltfimporter]"
     UPDATE_TOOLCHAIN
     USE_HOST_VCPKG
