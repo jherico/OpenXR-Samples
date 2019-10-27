@@ -70,30 +70,31 @@ QMatrix4x4 translation(const QVector3D& v) {
 struct StereoRenderer {
     Qt3DCore::QAspectEngine* m_aspectEngine{ new Qt3DCore::QAspectEngine };
     //Qt3DCore::QAspectEnginePrivate* m_aspectEnginePrivate;
+    Qt3DLogic::QLogicAspect* m_logicAspect{ new Qt3DLogic::QLogicAspect };
     Qt3DRender::QRenderAspect* m_renderAspect{ new Qt3DRender::QRenderAspect(Qt3DRender::QRenderAspect::Synchronous) };
     Qt3DRender::QRenderAspectPrivate* m_renderAspectPrivate{ nullptr };
-    Qt3DLogic::QLogicAspect* m_logicAspect{ new Qt3DLogic::QLogicAspect };
+    Qt3DRender::QRenderSurfaceSelector* m_renderSurfaceSelector{ nullptr };
 
     StereoRenderer(const std::array<Qt3DRender::QCamera*, 2>& cameras) {
         m_aspectEngine->registerAspect(m_renderAspect);
         m_aspectEngine->registerAspect(m_logicAspect);
-
-        //m_aspectEngine->setRunMode(Qt3DCore::QAspectEngine::Manual);
+        m_aspectEngine->setRunMode(Qt3DCore::QAspectEngine::Manual);
 
         Qt3DCore::QEntityPtr root(new Qt3DCore::QEntity());
         auto renderSettings = new Qt3DRender::QRenderSettings(root.data());
         root->addComponent(renderSettings);
-        auto renderSurfaceSelector = new Qt3DRender::QRenderSurfaceSelector(renderSettings);
-        renderSurfaceSelector->setSurface(g_sceneSurface);
+        m_renderSurfaceSelector = new Qt3DRender::QRenderSurfaceSelector(renderSettings);
+        m_renderSurfaceSelector->setSurface(g_sceneSurface);
         for (uint32_t eyeIndex = 0; eyeIndex < 2; ++eyeIndex) {
-            auto stereoViewport = new Qt3DRender::QViewport(renderSurfaceSelector);
-            stereoViewport->setNormalizedRect(QRectF(eyeIndex == 0 ? 0.0 : 0.5, 0.0, 0.5, 1.0));
+            auto stereoViewport = new Qt3DRender::QViewport(m_renderSurfaceSelector);
+            QRectF viewport = QRectF(eyeIndex == 0 ? 0.0 : 0.5, 0.0, 0.5, 1.0);
+            stereoViewport->setNormalizedRect(viewport);
             auto cameraSelector = new Qt3DRender::QCameraSelector(stereoViewport);
             cameraSelector->setCamera(cameras[eyeIndex]);
         }
         renderSettings->pickingSettings()->setPickMethod(Qt3DRender::QPickingSettings::BoundingVolumePicking);
         renderSettings->pickingSettings()->setPickResultMode(Qt3DRender::QPickingSettings::NearestPick);
-        renderSettings->setActiveFrameGraph(renderSurfaceSelector);
+        renderSettings->setActiveFrameGraph(m_renderSurfaceSelector);
         m_renderAspectPrivate =
             static_cast<Qt3DRender::QRenderAspectPrivate*>(Qt3DRender::QRenderAspectPrivate::get(m_renderAspect));
         m_renderAspectPrivate->renderInitialize(g_sceneContext);
@@ -262,13 +263,13 @@ struct Scene::Private {
         for (uint32_t i = 0; i < hitCount; ++i) {
             const auto& hit = hits.at(i);
             auto entity = hit.entity()->objectName();
-			auto transform = hit.entity()->componentsOfType<Qt3DCore::QTransform>().at(0);
-			if (transform) {
-			m_boundingBox->m_transform->setTranslation(transform->translation());
-			} else {
-				m_boundingBox->m_transform->setTranslation(hit.worldIntersection());
-			}
-			m_boundingBox->m_transform->setScale(0.3f);
+            auto transform = hit.entity()->componentsOfType<Qt3DCore::QTransform>().at(0);
+            if (transform) {
+            m_boundingBox->m_transform->setTranslation(transform->translation());
+            } else {
+                m_boundingBox->m_transform->setTranslation(hit.worldIntersection());
+            }
+            m_boundingBox->m_transform->setScale(0.3f);
             qDebug() << "Hits" << hit.worldIntersection() << hit.entity()->objectName();
         }
     }
@@ -475,8 +476,9 @@ struct Scene::Private {
         m_sceneRootEntity->setParent(m_stereoRenderer->m_aspectEngine->rootEntity().data());
     }
 
-    void render() {
-//        m_stereoRenderer->m_aspectEngine->processFrame();
+    void render(const xr::Extent2Di& size) {
+        m_stereoRenderer->m_renderSurfaceSelector->setExternalRenderTargetSize({size.width, size.height});
+        m_stereoRenderer->m_aspectEngine->processFrame();
         m_stereoRenderer->m_renderAspectPrivate->renderSynchronous(false);
     }
 
@@ -556,7 +558,7 @@ void Scene::updateHands(const HandStates& handStates) {
         hand->aim->m_transform->setMatrix(fromXr(handState.aim) * translation({ 0.0f, 0.0f, handState.trigger * -0.10f }));
 
 /*
-		if (index == 0 && handState.trigger > 0.5f) {
+        if (index == 0 && handState.trigger > 0.5f) {
             auto aimTransform = hand->aim->m_transform->worldMatrix();
             d->m_lineEntity->m_transform->setMatrix(aimTransform);
             auto origin = aimTransform * QVector3D{ 0, 0, 0 };
@@ -564,7 +566,7 @@ void Scene::updateHands(const HandStates& handStates) {
             d->m_rayCaster->trigger(origin, direction, 100.0f);
             //d->m_cuboidTransform->setMatrix(translation(origin) * QMatrix4x4(rotation.toRotationMatrix()));
         } else {
-            //			d->m_cuboidTransform->setMatrix({});
+            //            d->m_cuboidTransform->setMatrix({});
             //            d->m_cuboidTransform->setScale(4.0f * 0.05f);
             //            d->m_cuboidTransform->setTranslation(QVector3D(5.0f, -4.0f, 0.0f) * 0.05f);
         }
@@ -596,12 +598,8 @@ void Scene::updateEyes(const EyeStates& views) {
 }
 
 void Scene::render(Framebuffer& framebuffer) {
-    QCoreApplication::processEvents();
-    framebuffer.bind();
-    glClearColor(0.2f, 0.2f, 0.2f, 1);
-    framebuffer.clear();
-    d->render();
-    framebuffer.bindDefault();
+    //QCoreApplication::processEvents();
+    d->render(framebuffer.getSize());
 }
 }}  // namespace xr_examples::qt
 

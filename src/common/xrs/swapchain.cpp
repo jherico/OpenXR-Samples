@@ -3,11 +3,11 @@
 #include <glad/glad.h>
 
 void xrs::gl::FramebufferSwapchain::bind(Target target) {
-	glBindFramebuffer(target == Draw ? GL_DRAW_FRAMEBUFFER : GL_READ_FRAMEBUFFER, fbo);
+    glBindFramebuffer(target == Draw ? GL_DRAW_FRAMEBUFFER : GL_READ_FRAMEBUFFER, fbo);
 }
 
 void xrs::gl::FramebufferSwapchain::bindDefault(Target target) {
-	glBindFramebuffer(target == Draw ? GL_DRAW_FRAMEBUFFER : GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(target == Draw ? GL_DRAW_FRAMEBUFFER : GL_READ_FRAMEBUFFER, 0);
 }
 
 void xrs::gl::FramebufferSwapchain::createFramebuffer() {
@@ -33,11 +33,11 @@ void xrs::gl::FramebufferSwapchain::destroyFramebuffer() {
 
 void xrs::gl::FramebufferSwapchain::createSwapchain(const xr::Session& session, const xr::SwapchainCreateInfo& ci) {
     Parent::createSwapchain(session, ci);
-	createFramebuffer();
+    createFramebuffer();
 }
 
 void xrs::gl::FramebufferSwapchain::destroy() {
-	destroyFramebuffer();
+    destroyFramebuffer();
     Parent::destroy();
 }
 
@@ -53,6 +53,6 @@ void xrs::gl::FramebufferSwapchain::releaseImage() {
 }
 
 void xrs::gl::FramebufferSwapchain::clear(const xr::Color4f& color) {
-	glClearColor(color.r, color.g, color.b, color.a);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glClearColor(color.r, color.g, color.b, color.a);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }

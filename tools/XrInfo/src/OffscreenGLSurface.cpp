@@ -52,7 +52,7 @@ bool OffscreenGLSurface::create(QOpenGLContext* sharedContext) {
 }
 
 bool OffscreenGLSurface::makeCurrent() {
-	return _context->makeCurrent(_offscreenSurface);
+    return _context->makeCurrent(_offscreenSurface);
 }
 
 void OffscreenGLSurface::doneCurrent() {

@@ -131,6 +131,144 @@ inline void debugMessageCallback(GLenum source,
     std::cout << message << std::endl;
 }
 
+static std::string formatToString(GLenum format) {
+    switch (format) {
+        case GL_COMPRESSED_R11_EAC:
+            return "COMPRESSED_R11_EAC";
+        case GL_COMPRESSED_RED_RGTC1:
+            return "COMPRESSED_RED_RGTC1";
+        case GL_COMPRESSED_RG_RGTC2:
+            return "COMPRESSED_RG_RGTC2";
+        case GL_COMPRESSED_RG11_EAC:
+            return "COMPRESSED_RG11_EAC";
+        case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+            return "COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT";
+        case GL_COMPRESSED_RGB8_ETC2:
+            return "COMPRESSED_RGB8_ETC2";
+        case GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+            return "COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2";
+        case GL_COMPRESSED_RGBA8_ETC2_EAC:
+            return "COMPRESSED_RGBA8_ETC2_EAC";
+        case GL_COMPRESSED_SIGNED_R11_EAC:
+            return "COMPRESSED_SIGNED_R11_EAC";
+        case GL_COMPRESSED_SIGNED_RG11_EAC:
+            return "COMPRESSED_SIGNED_RG11_EAC";
+        case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
+            return "COMPRESSED_SRGB_ALPHA_BPTC_UNORM";
+        case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
+            return "COMPRESSED_SRGB8_ALPHA8_ETC2_EAC";
+        case GL_COMPRESSED_SRGB8_ETC2:
+            return "COMPRESSED_SRGB8_ETC2";
+        case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+            return "COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2";
+        case GL_DEPTH_COMPONENT16:
+            return "DEPTH_COMPONENT16";
+        case GL_DEPTH_COMPONENT24:
+            return "DEPTH_COMPONENT24";
+        case GL_DEPTH_COMPONENT32:
+            return "DEPTH_COMPONENT32";
+        case GL_DEPTH_COMPONENT32F:
+            return "DEPTH_COMPONENT32F";
+        case GL_DEPTH24_STENCIL8:
+            return "DEPTH24_STENCIL8";
+        case GL_R11F_G11F_B10F:
+            return "R11F_G11F_B10F";
+        case GL_R16_SNORM:
+            return "R16_SNORM";
+        case GL_R16:
+            return "R16";
+        case GL_R16F:
+            return "R16F";
+        case GL_R16I:
+            return "R16I";
+        case GL_R16UI:
+            return "R16UI";
+        case GL_R32F:
+            return "R32F";
+        case GL_R32I:
+            return "R32I";
+        case GL_R32UI:
+            return "R32UI";
+        case GL_R8_SNORM:
+            return "R8_SNORM";
+        case GL_R8:
+            return "R8";
+        case GL_R8I:
+            return "R8I";
+        case GL_R8UI:
+            return "R8UI";
+        case GL_RG16_SNORM:
+            return "RG16_SNORM";
+        case GL_RG16:
+            return "RG16";
+        case GL_RG16F:
+            return "RG16F";
+        case GL_RG16I:
+            return "RG16I";
+        case GL_RG16UI:
+            return "RG16UI";
+        case GL_RG32F:
+            return "RG32F";
+        case GL_RG32I:
+            return "RG32I";
+        case GL_RG32UI:
+            return "RG32UI";
+        case GL_RG8_SNORM:
+            return "RG8_SNORM";
+        case GL_RG8:
+            return "RG8";
+        case GL_RG8I:
+            return "RG8I";
+        case GL_RG8UI:
+            return "RG8UI";
+        case GL_RGB10_A2:
+            return "RGB10_A2";
+        case GL_RGB8:
+            return "RGB8";
+        case GL_RGB9_E5:
+            return "RGB9_E5";
+        case GL_RGBA16_SNORM:
+            return "RGBA16_SNORM";
+        case GL_RGBA16:
+            return "RGBA16";
+        case GL_RGBA16F:
+            return "RGBA16F";
+        case GL_RGBA16I:
+            return "RGBA16I";
+        case GL_RGBA16UI:
+            return "RGBA16UI";
+        case GL_RGBA2:
+            return "RGBA2";
+        case GL_RGBA32F:
+            return "RGBA32F";
+        case GL_RGBA32I:
+            return "RGBA32I";
+        case GL_RGBA32UI:
+            return "RGBA32UI";
+        case GL_RGBA8_SNORM:
+            return "RGBA8_SNORM";
+        case GL_RGBA8:
+            return "RGBA8";
+        case GL_RGBA8I:
+            return "RGBA8I";
+        case GL_RGBA8UI:
+            return "RGBA8UI";
+        case GL_SRGB8_ALPHA8:
+            return "SRGB8_ALPHA8";
+        case GL_SRGB8:
+            return "SRGB8";
+        case GL_RGB16F:
+            return "RGB16F";
+        case GL_DEPTH32F_STENCIL8:
+            return "DEPTH32F_STENCIL8";
+        case GL_BGR:
+            return "BGR (Out of spec)";
+        case GL_BGRA:
+            return "BGRA (Out of spec)";
+    }
+    return "unknown";
+}
+
 struct OpenXrExample {
     bool quit{ false };
 
@@ -318,6 +456,11 @@ struct OpenXrExample {
 
         auto referenceSpaces = session.enumerateReferenceSpaces();
         space = session.createReferenceSpace(xr::ReferenceSpaceCreateInfo{ xr::ReferenceSpaceType::Local });
+
+        auto swapchainFormats = session.enumerateSwapchainFormats();
+        for (const auto& format : swapchainFormats) {
+            LOG_INFO("\t{}", formatToString((GLenum)format));
+        }
     }
 
     xr::SwapchainCreateInfo swapchainCreateInfo;
@@ -562,7 +705,7 @@ struct OpenXrExample {
             instance = nullptr;
         }
 
-		SDL_Quit();
+        SDL_Quit();
     }
 };
 

@@ -37,14 +37,14 @@ using namespace xr_examples::qml::impl;
 
 extern QOpenGLContext* qt_gl_global_share_context();
 
-xr::Session g_sharedSession;
-void SharedObject::setSharedSession(const xr::Session& session) {
-    g_sharedSession = session;
-}
-
-const xr::Session& SharedObject::getSharedSession() {
-    return g_sharedSession;
-}
+//xr::Session g_sharedSession;
+//void SharedObject::setSharedSession(const xr::Session& session) {
+//    g_sharedSession = session;
+//}
+//
+//const xr::Session& SharedObject::getSharedSession() {
+//    return g_sharedSession;
+//}
 
 SharedObject::SharedObject() {
     // Create render control
@@ -231,7 +231,6 @@ void SharedObject::releaseEngine(QQmlEngine* engine) {
 }
 
 bool SharedObject::event(QEvent* e) {
-#ifndef DISABLE_QML
     switch (static_cast<OffscreenEvent::Type>(e->type())) {
         case OffscreenEvent::Initialize:
             onInitialize();
@@ -244,24 +243,12 @@ bool SharedObject::event(QEvent* e) {
         default:
             break;
     }
-#endif
     return QObject::event(e);
 }
 
-// Called by the render event handler, from the render thread
-void SharedObject::initializeRenderControl(QOpenGLContext* context) {
-    if (context->shareContext() != qt_gl_global_share_context()) {
-        qFatal("QML rendering context has no share context");
-    }
-
-    _swapchain.create(getSharedSession(), { _size.width(), _size.height() });
-    _renderControl->initialize(context);
-}
-
-void SharedObject::setRenderTarget(uint32_t fbo, const QSize& size) {
-#ifndef DISABLE_QML
-    _quickWindow->setRenderTarget(fbo, size);
-#endif
+void SharedObject::setSwapchain(const xr::Swapchain& swapchain) {
+    _swapchain = swapchain;
+    _swapchainImages = _swapchain.enumerateSwapchainImages<xr::SwapchainImageOpenGLKHR>();
 }
 
 QSize SharedObject::getSize() const {
@@ -316,11 +303,9 @@ bool SharedObject::preRender(bool sceneGraphSync) {
     return true;
 }
 
-void SharedObject::shutdownRendering(const QSize& size) {
+void SharedObject::shutdownRendering() {
     QMutexLocker locker(&_mutex);
-#ifndef DISABLE_QML
     _renderControl->invalidate();
-#endif
     wake();
 }
 
@@ -349,10 +334,8 @@ void SharedObject::addToDeletionList(QObject* object) {
 }
 
 void SharedObject::setProxyWindow(QWindow* window) {
-#ifndef DISABLE_QML
     _proxyWindow = window;
     _renderControl->setRenderWindow(window);
-#endif
 }
 
 void SharedObject::wait() {
@@ -364,7 +347,6 @@ void SharedObject::wake() {
 }
 
 void SharedObject::onInitialize() {
-#ifndef DISABLE_QML
     // Associate root item with the window.
     _rootItem->setParentItem(_quickWindow->contentItem());
     _renderControl->prepareThread(_renderThread);
@@ -381,7 +363,6 @@ void SharedObject::onInitialize() {
     _renderTimer->setTimerType(Qt::PreciseTimer);
     _renderTimer->setInterval(MIN_TIMER_MS);  // 5ms, Qt::PreciseTimer required
     _renderTimer->start();
-#endif
 }
 
 void SharedObject::onRender() {

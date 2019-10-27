@@ -85,7 +85,7 @@ public:
         _shader(shader), _mesh(mesh), _color{ color } {}
 
     void draw(const Matrix4& transformationMatrix, SceneGraph::Camera3D& camera) override {
-		_shader.setColor(_color).setTransformationProjectionMatrix(camera.projectionMatrix() * transformationMatrix);
+        _shader.setColor(_color).setTransformationProjectionMatrix(camera.projectionMatrix() * transformationMatrix);
         _mesh.draw(_shader);
     }
 
@@ -180,10 +180,10 @@ struct Shared {
         return cube;
     }
 
-	Resource<GL::Mesh> buildLinePrimitive() {
+    Resource<GL::Mesh> buildLinePrimitive() {
         Resource<GL::Mesh> line = resourceManager.get<GL::Mesh>("line");
         if (!line) {
-			Trade::MeshData3D lineData = Primitives::line3D({ 0, 0, 0 }, { 0, 0, -10000 });
+            Trade::MeshData3D lineData = Primitives::line3D({ 0, 0, 0 }, { 0, 0, -10000 });
 
             GL::Buffer* buffer = new GL::Buffer;
             buffer->setData(lineData.positions(0), GL::BufferUsage::StaticDraw);
@@ -392,12 +392,12 @@ struct Scene::Private {
 
         Object3D* aimRoot{ new Object3D };
         ColoredDrawable* aimDrawable{ nullptr };
-		FlatDrawable* lineDrawable{ nullptr };
+        FlatDrawable* lineDrawable{ nullptr };
     };
     std::array<HandData, 2> handsData;
 
     Shaders::Phong coloredShader, texturedShader{ Shaders::Phong::Flag::DiffuseTexture };
-	Shaders::Flat3D flatShader;
+    Shaders::Flat3D flatShader;
 
     std::vector<AABB> meshExtents;
     Containers::Array<Containers::Optional<GL::Mesh>> meshes;
@@ -455,7 +455,7 @@ struct Scene::Private {
     void setupHands() {
         auto& resourceManager = Shared::get().resourceManager;
         Resource<GL::Mesh> cubeMesh = Shared::get().buildCubePrimitive();
-		Resource<GL::Mesh> lineMesh = Shared::get().buildLinePrimitive();
+        Resource<GL::Mesh> lineMesh = Shared::get().buildLinePrimitive();
         xr::for_each_side_index([&](uint32_t eyeIndex) {
             auto color = eyeIndex == 0 ? 0xff0000_rgbf : 0x00ff00_rgbf;
             auto& handData = handsData[eyeIndex];
@@ -467,7 +467,7 @@ struct Scene::Private {
             handData.aimRoot = new Object3D(playerRoot);
             handData.aimRoot->setParent(playerRoot);
             handData.aimDrawable = new ColoredDrawable(*handData.aimRoot, coloredShader, *cubeMesh, color, drawables);
-			handData.lineDrawable = new FlatDrawable(*handData.aimRoot, flatShader, *lineMesh, color, drawables);
+            handData.lineDrawable = new FlatDrawable(*handData.aimRoot, flatShader, *lineMesh, color, drawables);
         });
     }
 
@@ -605,15 +605,12 @@ struct Scene::Private {
     }
 
     void render(Framebuffer& framebuffer) {
-        framebuffer.bind();
-        framebuffer.clear();
         xr::for_each_side_index([&](uint32_t eyeIndex) {
-            framebuffer.setViewport(eyeIndex);
+            framebuffer.setViewportSide(eyeIndex);
             auto& camera = *eyesData[eyeIndex].camera;
             camera.setViewport(fromXr(framebuffer.getEyeSize()));
             camera.draw(drawables);
         });
-        framebuffer.bindDefault();
     }
 };
 

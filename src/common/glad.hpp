@@ -2,6 +2,6 @@
 
 namespace xr_examples { namespace glad {
 
-	void init();
+    void init();
 
 }}  // namespace xr_examples::glad

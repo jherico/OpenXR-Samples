@@ -10,8 +10,8 @@
 using namespace xr_examples::gl;
 
 struct Scene::Private {
-	using EyeStates = xr_examples::EyeStates;
-	using HandStates = xr_examples::HandStates;
+    using EyeStates = xr_examples::EyeStates;
+    using HandStates = xr_examples::HandStates;
 
     Private() {}
 
@@ -20,20 +20,17 @@ struct Scene::Private {
     void loadCubemap(const std::string& filename) {
     }
 
-	void loadScene(const std::string& filename) {
+    void loadScene(const std::string& filename) {
     }
 
     void render(Framebuffer& framebuffer) {
-        framebuffer.bind();
-        framebuffer.clear();
         xr::for_each_side_index([&](uint32_t eyeIndex) {
-            framebuffer.setViewport(eyeIndex);
+            framebuffer.setViewportSide(eyeIndex);
         });
-        framebuffer.bindDefault();
     }
 
-	HandStates handStates;
-	EyeStates eyeStates;
+    HandStates handStates;
+    EyeStates eyeStates;
 };
 
 Scene::~Scene() {
@@ -48,7 +45,7 @@ void Scene::create() {
 }
 
 void Scene::setCubemap(const std::string& cubemapPrefix) {
-	d->loadCubemap(cubemapPrefix);
+    d->loadCubemap(cubemapPrefix);
 }
 
 void Scene::loadModel(const std::string& modelfile) {
@@ -60,11 +57,11 @@ void Scene::render(xr_examples::Framebuffer& stereoFramebuffer) {
 }
 
 void Scene::updateHands(const xr_examples::HandStates& handStates) {
-	d->handStates = handStates;
+    d->handStates = handStates;
 }
 
 void Scene::updateEyes(const xr_examples::EyeStates& eyeStates) {
-	d->eyeStates = eyeStates;
+    d->eyeStates = eyeStates;
 }
 
 #if 0 

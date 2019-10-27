@@ -12,7 +12,7 @@ namespace xr_examples { namespace glfw {
 struct OffscreenContext : xr_examples::Context {
     OffscreenContext(GLFWwindow* parentContext) {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-		glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
+        glfwWindowHint(GLFW_FOCUSED, GLFW_FALSE);
         context = glfwCreateWindow(100, 100, "", nullptr, parentContext);
     }
 

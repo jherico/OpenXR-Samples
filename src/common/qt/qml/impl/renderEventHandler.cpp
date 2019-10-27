@@ -20,6 +20,28 @@
 
 using namespace xr_examples::qml::impl;
 
+RenderEventHandler::RenderEventHandler(SharedObject* shared, QThread* targetThread) : _shared(shared) {
+    QOpenGLContext* currentContext = QOpenGLContext::currentContext();
+    auto* currentSurface = currentContext->surface();
+
+    _context.setFormat(QSurfaceFormat::defaultFormat());
+    _surface.setFormat(QSurfaceFormat::defaultFormat());
+    _context.setShareContext(qt_gl_global_share_context());
+    // Create the GL canvas in the same thread as the share canvas
+    if (!_context.create()) {
+        qFatal("Failed to create OffscreenGLCanvas context");
+    }
+    _surface.create();
+    if (!_surface.isValid()) {
+        qFatal("Offscreen surface is invalid");
+    }
+
+    _context.moveToThread(targetThread);
+    moveToThread(targetThread);
+
+    currentContext->makeCurrent(currentSurface);
+}
+
 bool RenderEventHandler::event(QEvent* e) {
     switch (static_cast<OffscreenEvent::Type>(e->type())) {
         case OffscreenEvent::Render:
@@ -44,47 +66,26 @@ bool RenderEventHandler::event(QEvent* e) {
     return QObject::event(e);
 }
 
-RenderEventHandler::RenderEventHandler(SharedObject* shared, QThread* targetThread) : _shared(shared) {
-    QOpenGLContext* currentContext = QOpenGLContext::currentContext();
-    auto* currentSurface = currentContext->surface();
-
-    _context.setFormat(QSurfaceFormat::defaultFormat());
-    _surface.setFormat(QSurfaceFormat::defaultFormat());
-    _context.setShareContext(qt_gl_global_share_context());
-    // Create the GL canvas in the same thread as the share canvas
-    if (!_context.create()) {
-        qFatal("Failed to create OffscreenGLCanvas context");
-    }
-    _surface.create();
-    if (!_surface.isValid()) {
-        qFatal("Offscreen surface is invalid");
-    }
-
-    _context.moveToThread(targetThread);
-    moveToThread(targetThread);
-
-    currentContext->makeCurrent(currentSurface);
-}
-
 void RenderEventHandler::onInitalize() {
     if (_shared->isQuit()) {
         return;
     }
 
+    if (_context.shareContext() != qt_gl_global_share_context()) {
+        qFatal("QML rendering context has no share context");
+    }
+
     if (!_context.makeCurrent(&_surface)) {
         qFatal("Unable to make QML rendering context current on render thread");
     }
-    _shared->initializeRenderControl(&_context);
-    _initialized = true;
-}
+    auto& glf = qt::getFunctions();
+    glf.glCreateFramebuffers(1, &_fbo);
+    glf.glCreateRenderbuffers(1, &_depthBuffer);
+    glf.glNamedRenderbufferStorage(_depthBuffer, GL_DEPTH24_STENCIL8, _shared->_size.width(), _shared->_size.height());
+    glf.glNamedFramebufferRenderbuffer(_fbo, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, _depthBuffer);
 
-void RenderEventHandler::resize() {
-    auto targetSize = _shared->getSize();
-    if (_currentSize != targetSize) {
-		_shared->_swapchain.destroy();
-        _currentSize = targetSize;
-	    _shared->_swapchain.create(SharedObject::getSharedSession(), { _currentSize.width(), _currentSize.height() });
-    }
+    _shared->_renderControl->initialize(&_context);
+    _initialized = true;
 }
 
 void RenderEventHandler::onRender() {
@@ -108,22 +109,24 @@ void RenderEventHandler::qmlRender(bool sceneGraphSync) {
         return;
     }
 
-    resize();
+    auto& swapchain = _shared->_swapchain;
+    auto index = swapchain.acquireSwapchainImage({});
+    auto& swapchainImage = _shared->_swapchainImages[index];
+    swapchain.waitSwapchainImage({ xr::Duration::infinite() });
 
-    auto swapchainImage = _shared->_swapchain.acquireImage();
-	_shared->_swapchain.waitImage();
-	auto& glf = qt::getFunctions();
-	glf.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _shared->_swapchain.fbo);
-	
-	glClearColor(1, 0, 1, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    _shared->setRenderTarget(_shared->_swapchain.fbo, _currentSize);
+    auto& glf = qt::getFunctions();
+
+    glf.glNamedFramebufferTexture(_fbo, GL_COLOR_ATTACHMENT0, swapchainImage.image, 0);
+    glf.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fbo);
+    glf.glClearColor(1, 0, 1, 1);
+    glf.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    _shared->_quickWindow->setRenderTarget(_fbo, _shared->_size);
     _shared->_renderControl->render();
     glf.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-	glf.glFlush();
-	glf.glFinish();
-	_shared->_swapchain.releaseImage();
-	_shared->_quickWindow->resetOpenGLState();
+    glf.glFlush();
+    glf.glFinish();
+    swapchain.releaseSwapchainImage({});
+    _shared->_quickWindow->resetOpenGLState();
     _shared->_lastRenderTime = std::chrono::high_resolution_clock::now();
 }
 
@@ -133,9 +136,9 @@ void RenderEventHandler::onQuit() {
             qFatal("QML rendering context not current on render thread");
         }
 
-		_shared->_swapchain.destroy();
-        _shared->shutdownRendering(_currentSize);
-		_context.doneCurrent();
+        _shared->_swapchain.destroy();
+        _shared->shutdownRendering();
+        _context.doneCurrent();
     }
     _context.moveToThread(qApp->thread());
     moveToThread(qApp->thread());

@@ -10,17 +10,17 @@ class ThreadedSwapchainRenderer {
 public:
     void requestNewFrame();
 
-	virtual void render() = 0;
+    virtual void render() = 0;
     virtual void initContext() = 0;
 
     virtual void create(const xr::Extent2Di& size, const xr::Session& session, Window& window);
-	const xr::Swapchain& getSwapchain() const;
+    const xr::Swapchain& getSwapchain() const;
 
 private:
     using Mutex = std::mutex;
     using Lock = std::unique_lock<Mutex>;
 
-	SwapchainFramebuffer framebuffer;
+    SwapchainFramebuffer framebuffer;
     std::condition_variable conditional;
     std::mutex mutex;
     std::unique_ptr<std::thread> thread;

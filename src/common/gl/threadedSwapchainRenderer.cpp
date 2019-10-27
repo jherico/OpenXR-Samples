@@ -14,7 +14,7 @@ void ThreadedSwapchainRenderer::create(const xr::Extent2Di& size, const xr::Sess
 
     auto glContext = window.createOffscreenContext();
     glContext->makeCurrent();
-	gl::enableDebugLogging();
+    gl::enableDebugLogging();
     // Framebuffers are not shared between contexts, so we have to create ours AFTER creating and making the offscreen context current
     framebuffer.create(size);
     // Always make sure the first entry in the swapchain is valid for submission in a layer BEFORE we return on the main thread
@@ -24,17 +24,17 @@ void ThreadedSwapchainRenderer::create(const xr::Extent2Di& size, const xr::Sess
         framebuffer.bindDefault();
         framebuffer.advance();
     }
-	// Let derived class do any one-time GL context setup required
+    // Let derived class do any one-time GL context setup required
     initContext();
-	// Release offscreen context on the main thread
+    // Release offscreen context on the main thread
     glContext->doneCurrent();
 
-	// Launch the rendering thread.  The offscreen context will remain current on that thread for the duration
+    // Launch the rendering thread.  The offscreen context will remain current on that thread for the duration
     thread = std::make_unique<std::thread>([=] {
         glContext->makeCurrent();
         run();
         glContext->doneCurrent();
-		glContext->destroy();
+        glContext->destroy();
     });
 
     window.makeCurrent();

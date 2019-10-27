@@ -45,8 +45,8 @@ magnum::Framebuffer::~Framebuffer() {
 
 void magnum::Framebuffer::create(const xr::Extent2Di& size) {
     this->size = size;
-	this->eyeSize = size;
-	eyeSize.width /= 2;
+    this->eyeSize = size;
+    eyeSize.width /= 2;
     d = std::make_shared<Private>(fromXr(size));
 }
 
@@ -75,7 +75,7 @@ void magnum::Framebuffer::setViewport(const xr::Rect2Di& viewport) {
 }
 
 uint32_t magnum::Framebuffer::id() {
-	return d->object.id();
+    return d->object.id();
 }
 
 

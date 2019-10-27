@@ -46,9 +46,9 @@ public:
         }
     }
 
-	uint32_t getImageSize(uint32_t arrayIndex = 0, uint32_t faceIndex = 0) const {
-		return imageInfo.m_orig_height * imageInfo.m_orig_width * sizeof(uint32_t);
-	}
+    uint32_t getImageSize(uint32_t arrayIndex = 0, uint32_t faceIndex = 0) const {
+        return imageInfo.m_orig_height * imageInfo.m_orig_width * sizeof(uint32_t);
+    }
 
     void readImageToBuffer(void* outputBuffer, uint32_t arrayIndex = 0, uint32_t faceIndex = 0) const {
         uint32_t imageIndex = arrayIndex * (basist::cBASISTexTypeCubemapArray ? 6 : 1);

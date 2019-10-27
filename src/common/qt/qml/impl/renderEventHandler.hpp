@@ -43,16 +43,16 @@ public:
 private:
     bool event(QEvent* e) override;
     void onInitalize();
-    void resize();
     void onRender();
     void onRenderSync();
     void qmlRender(bool sceneGraphSync);
     void onQuit();
 
     SharedObject* const _shared;
-	QOpenGLContext _context;
-	QOffscreenSurface _surface;
-	QSize _currentSize{ 800, 600 };
+    QOpenGLContext _context;
+    uint32_t _fbo{ 0 };
+    uint32_t _depthBuffer{ 0 };
+    QOffscreenSurface _surface;
     bool _initialized { false };
 };
 

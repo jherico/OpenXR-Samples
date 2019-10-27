@@ -40,7 +40,7 @@ inline Magnum::Matrix4 fromXrGL(const xr::Fovf& fov, float nearZ = 0.01f, float 
     const float tanAngleWidth = tanAngleRight - tanAngleLeft;
     const float tanAngleHeight = tanAngleUp - tanAngleDown;
 
-	Magnum::Vector4 result[4];
+    Magnum::Vector4 result[4];
     const float offsetZ = nearZ;
     result[0][0] = 2 / tanAngleWidth;
     result[1][0] = 0;
@@ -61,7 +61,7 @@ inline Magnum::Matrix4 fromXrGL(const xr::Fovf& fov, float nearZ = 0.01f, float 
     result[1][3] = 0;
     result[2][3] = -1;
     result[3][3] = 0;
-	return Magnum::Matrix4{result[0], result[1], result[2], result[3]};
+    return Magnum::Matrix4{result[0], result[1], result[2], result[3]};
 }
 
 inline Magnum::Matrix4 fromXr(const xr::Posef& p) {

@@ -18,7 +18,7 @@ using ExampleType = OpenXrExampleBase<WindowType, FramebufferType, SceneType>;
 static const xr::Extent2Di UI_SIZE{ 720, 1280 };
 
 class OpenXrExample : public ExampleType {
-	using Parent = ExampleType;
+    using Parent = ExampleType;
 
     struct UILayer {
         imgui::Renderer renderer;

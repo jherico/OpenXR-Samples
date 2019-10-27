@@ -19,7 +19,6 @@
 #include <QtQml/QQmlFileSelector>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
-#include <QtQuick/QQuickRenderControl>
 
 #include "impl/sharedObject.hpp"
 
@@ -28,14 +27,6 @@ using namespace xr_examples::qml::impl;
 
 const QmlContextObjectCallback OffscreenSurface::DEFAULT_CONTEXT_OBJECT_CALLBACK = [](QQmlContext*, QQuickItem*) {};
 const QmlContextCallback OffscreenSurface::DEFAULT_CONTEXT_CALLBACK = [](QQmlContext*) {};
-
-void OffscreenSurface::setSharedSession(const xr::Session& session) {
-	SharedObject::setSharedSession(session);
-}
-
-const xr::Swapchain& OffscreenSurface::getSwapchain() const {
-	return _sharedObject->getSwapchain();
-}
 
 
 QQmlFileSelector* OffscreenSurface::getFileSelector() {
@@ -60,6 +51,10 @@ OffscreenSurface::OffscreenSurface() : _sharedObject(new impl::SharedObject()) {
 
 OffscreenSurface::~OffscreenSurface() {
     _sharedObject->deleteLater();
+}
+
+void OffscreenSurface::setSwapchain(const xr::Swapchain& swapchain) {
+    _sharedObject->setSwapchain(swapchain);
 }
 
 void OffscreenSurface::resize(const QSize& newSize_) {

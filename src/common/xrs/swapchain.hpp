@@ -100,17 +100,17 @@ public:
         Read = 2,
     };
 
-	void createSwapchain(const xr::Session& session, const xr::SwapchainCreateInfo& ci) override;
+    void createSwapchain(const xr::Session& session, const xr::SwapchainCreateInfo& ci) override;
     void destroy() override;
-	::xr::SwapchainImageOpenGLKHR& acquireImage() override;
+    ::xr::SwapchainImageOpenGLKHR& acquireImage() override;
     void releaseImage() override;
-	void bind(Target target);
-	void clear(const xr::Color4f& color = { 0, 0, 0, 1 });
-	static void bindDefault(Target target);
-	void createFramebuffer();
-	void destroyFramebuffer();
+    void bind(Target target = Draw);
+    void clear(const xr::Color4f& color = { 0, 0, 0, 1 });
+    static void bindDefault(Target target = Draw);
+    void createFramebuffer();
+    void destroyFramebuffer();
 
-	uint32_t fbo{ 0 };
+    uint32_t fbo{ 0 };
     uint32_t depthStencil{ 0 };
 };
 

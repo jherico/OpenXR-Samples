@@ -16,8 +16,8 @@ struct AttributeFormat {
         Integer,
         Long,
     };
-	AttributeFormat(Type type = Type::Float, uint32_t size = 4, uint32_t scalarType = 0x1406, uint32_t offset = 0) : type(type), size(size), scalarType(scalarType), offset(offset) {}
-	Type type;
+    AttributeFormat(Type type = Type::Float, uint32_t size = 4, uint32_t scalarType = 0x1406, uint32_t offset = 0) : type(type), size(size), scalarType(scalarType), offset(offset) {}
+    Type type;
     uint32_t size;
     uint32_t scalarType;
     uint32_t offset;
@@ -33,7 +33,7 @@ struct Pipeline {
     void setAttributeIFormat(uint32_t location, uint32_t size, uint32_t scalarType, uint32_t offset = 0);
     void destroy() noexcept;
     void create();
-	void bind();
+    void bind();
 
     std::unordered_map<ShaderStage, std::list<std::string>> shaderSources;
     std::unordered_map<uint32_t, AttributeFormat> attributes;

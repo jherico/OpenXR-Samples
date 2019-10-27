@@ -50,20 +50,19 @@ class OffscreenSurface : public QObject {
     Q_OBJECT
 
 public:
-    static void setSharedSession(const xr::Session& session);
     static const QmlContextObjectCallback DEFAULT_CONTEXT_OBJECT_CALLBACK;
     static const QmlContextCallback DEFAULT_CONTEXT_CALLBACK;
 
     OffscreenSurface();
     virtual ~OffscreenSurface();
 
-	const xr::Swapchain& getSwapchain() const;
     QSize size() const;
     virtual void resize(const QSize& size);
     void clearCache();
 
     void setMaxFps(uint8_t maxFps);
     // Optional values for event handling
+    void setSwapchain(const xr::Swapchain& swapchain);
     void setProxyWindow(QWindow* window);
     void setMouseTranslator(const MouseTranslator& mouseTranslator) { _mouseTranslator = mouseTranslator; }
 

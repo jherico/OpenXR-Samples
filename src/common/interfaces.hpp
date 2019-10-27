@@ -17,9 +17,9 @@ struct HandState {
     xr::Posef grip;
     xr::Posef aim;
     float squeeze{ -1.0 };
-	bool squeezeTouched{ false };
+    bool squeezeTouched{ false };
     float trigger{ -1.0 };
-	bool triggerTouched{ false };
+    bool triggerTouched{ false };
     xr::Vector2f thumb;
     bool thumbClicked{ false };
     bool thumbTouched{ false };
@@ -86,7 +86,7 @@ struct Framebuffer {
     virtual void setViewport(const xr::Rect2Di& viewport) = 0;
     virtual uint32_t id() = 0;
 
-    virtual void setViewport(uint32_t side) final {
+    virtual void setViewportSide(uint32_t side) final {
         xr::Rect2Di result{ { 0, 0 }, eyeSize };
         if (side == 1) {
             result.offset.x += eyeSize.width;

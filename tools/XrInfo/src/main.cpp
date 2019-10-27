@@ -218,7 +218,7 @@ struct XrContext {
     xr::SwapchainCreateInfo swapchainCreateInfo;
     xr::Swapchain swapchain;
     std::vector<xr::SwapchainImageOpenGLKHR> swapchainImages;
-	bool finished{ false };
+    bool finished{ false };
 
     std::unordered_set<std::string> discoveredExtensions;
     std::vector<const char*> desiredExtensions{ {
@@ -309,9 +309,9 @@ struct XrContext {
             session.endSession();
             QGuiApplication::quit();
         } else if (sessionState == xr::SessionState::Idle) {
-			session.destroy();
-			session = nullptr;
-		}
+            session.destroy();
+            session = nullptr;
+        }
     }
 
     void onTimer() {

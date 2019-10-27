@@ -22,7 +22,7 @@ public:
     void swapBuffers() const override;
     void requestClose() override;
     xr::Extent2Di getSize() const override;
-	Context::Pointer createOffscreenContext() const override;
+    Context::Pointer createOffscreenContext() const override;
 
 private:
     ::std::shared_ptr<Private> d;

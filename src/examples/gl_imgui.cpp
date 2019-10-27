@@ -259,8 +259,8 @@ public:
     }
 
     void prepareUi() {
-		imgui::Renderer::init();
-		ui.renderer.setHandler([this] { uiHandler(); });
+        imgui::Renderer::init();
+        ui.renderer.setHandler([this] { uiHandler(); });
         ui.renderer.create(UI_SIZE, xrSession, window);
         ui.layer.space = space;
         ui.layer.subImage.swapchain = ui.renderer.getSwapchain();

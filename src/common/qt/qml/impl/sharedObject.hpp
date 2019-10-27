@@ -42,12 +42,9 @@ class RenderEventHandler;
 class SharedObject : public QObject {
     Q_OBJECT
     friend class RenderEventHandler;
-	using time_point = std::chrono::time_point<std::chrono::steady_clock>;
+    using time_point = std::chrono::time_point<std::chrono::steady_clock>;
 
 public:
-    static void setSharedSession(const xr::Session& session);
-	static const xr::Session& getSharedSession();
-
     SharedObject();
     virtual ~SharedObject();
 
@@ -57,6 +54,7 @@ public:
     bool isQuit() const;
 
     QSize getSize() const;
+    void setSwapchain(const xr::Swapchain& swapchain);
     void setSize(const QSize& size);
     void setMaxFps(uint8_t maxFps);
 
@@ -69,16 +67,12 @@ public:
     void resume();
     bool isPaused() const;
     void addToDeletionList(QObject* object);
-	const xr::Swapchain& getSwapchain() const { return _swapchain.swapchain; }
+    const xr::Swapchain& getSwapchain() const { return _swapchain; }
 
 private:
     bool event(QEvent* e) override;
-
     bool preRender(bool sceneGraphSync);
-    void shutdownRendering(const QSize& size);
-    // Called by the render event handler, from the render thread
-    void initializeRenderControl(QOpenGLContext* context);
-    void setRenderTarget(uint32_t fbo, const QSize& size);
+    void shutdownRendering();
 
     QQmlEngine* acquireEngine(OffscreenSurface* surface);
     void releaseEngine(QQmlEngine* engine);
@@ -92,7 +86,8 @@ private:
     void onTimer();
     void onAboutToQuit();
 
-	xrs::gl::FramebufferSwapchain _swapchain;
+    xr::Swapchain _swapchain;
+    std::vector<::xr::SwapchainImageOpenGLKHR> _swapchainImages;
 
     QList<QPointer<QObject>> _deletionList;
 

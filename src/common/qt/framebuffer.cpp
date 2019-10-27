@@ -114,7 +114,6 @@ void Framebuffer::create(const xr::Extent2Di& size) {
     this->size = size;
     this->eyeSize = size;
     eyeSize.width /= 2;
-
     d = std::make_shared<Private>(size);
 }
 
@@ -126,9 +125,9 @@ void Framebuffer::bind(Target target) {
 }
 void Framebuffer::clear(const xr::Color4f& color, float depth, int stencil) {
     auto& glf = getFunctions();
-	glf.glClearColor(color.r, color.g, color.b, color.a);
-	glf.glClearDepth(depth);
-	glf.glClearStencil(stencil);
+    glf.glClearColor(color.r, color.g, color.b, color.a);
+    glf.glClearDepth(depth);
+    glf.glClearStencil(stencil);
     glf.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 

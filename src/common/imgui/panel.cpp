@@ -141,7 +141,7 @@ struct Renderer::Private {
 
                     if (clip_rect.x < fb_width && clip_rect.y < fb_height && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f) {
                         // Apply scissor/clipping rectangle
-						//currentScissor = { clip_rect.x, fb_height - clip_rect.w, clip_rect.z - clip_rect.x, clip_rect.w - clip_rect.y };
+                        //currentScissor = { clip_rect.x, fb_height - clip_rect.w, clip_rect.z - clip_rect.x, clip_rect.w - clip_rect.y };
                         glScissor((int)clip_rect.x, (int)(fb_height - clip_rect.w), (int)(clip_rect.z - clip_rect.x),
                                   (int)(clip_rect.w - clip_rect.y));
                         // Bind texture, Draw

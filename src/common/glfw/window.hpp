@@ -9,7 +9,7 @@ class Window : public xr_examples::Window {
     struct Private;
 public:
     static void init();
-	static void deinit();
+    static void deinit();
 
     Window();
     virtual ~Window();
@@ -21,7 +21,7 @@ public:
     void runWindowLoop(const ::std::function<void()>& handler) override;
     void swapBuffers() const override;
     void requestClose() override;
-	Context::Pointer createOffscreenContext() const override;
+    Context::Pointer createOffscreenContext() const override;
 
     xr::Extent2Di getSize() const override;
 

@@ -118,7 +118,7 @@ public:
         window.makeCurrent();
         window.setSwapInterval(0);
         glad::init();
-		gl::enableDebugLogging();
+        gl::enableDebugLogging();
 #endif
 
         framebuffer.create(renderTargetSize);
@@ -200,14 +200,14 @@ public:
 
     void preapreXrLayers() {
         xr::SwapchainCreateInfo ci;
-		ci.usageFlags = xr::SwapchainUsageFlagBits::TransferDst;
-		ci.format = xrs::DEFAULT_SWAPCHAIN_FORMAT;
-		ci.width = (uint32_t)renderTargetSize.width;
-		ci.height = (uint32_t)renderTargetSize.height;
-		ci.arraySize = 1;
-		ci.sampleCount = 1;
-		ci.faceCount = 1;
-		ci.mipCount = 1;
+        ci.usageFlags = xr::SwapchainUsageFlagBits::TransferDst;
+        ci.format = xrs::DEFAULT_SWAPCHAIN_FORMAT;
+        ci.width = (uint32_t)renderTargetSize.width;
+        ci.height = (uint32_t)renderTargetSize.height;
+        ci.arraySize = 1;
+        ci.sampleCount = 1;
+        ci.faceCount = 1;
+        ci.mipCount = 1;
 
         projectionColorSwapchain = xrSession.createSwapchain(ci);
         projectionFramebuffer.setSwapchain(projectionColorSwapchain);
@@ -218,28 +218,28 @@ public:
         projectionFramebuffer.setDepthSwapchain(projectionDepthSwapchain);
 #endif
 
-		projectionFramebuffer.create(renderTargetSize);
+        projectionFramebuffer.create(renderTargetSize);
         projectionLayer.space = space;
         // Finish setting up the layer submission
         xr::for_each_side_index([&](uint32_t eyeIndex) {
-			xr::Rect2Di imageRect;
-			imageRect.extent = { (int32_t)renderTargetSize.width / 2, (int32_t)renderTargetSize.height };
+            xr::Rect2Di imageRect;
+            imageRect.extent = { (int32_t)renderTargetSize.width / 2, (int32_t)renderTargetSize.height };
             if (eyeIndex == 1) {
                 imageRect.offset.x = imageRect.extent.width;
             }
 
-			auto& layerView = projectionLayerViews[eyeIndex];
+            auto& layerView = projectionLayerViews[eyeIndex];
             layerView.subImage.swapchain = projectionColorSwapchain;
-			layerView.subImage.imageRect = imageRect;
+            layerView.subImage.imageRect = imageRect;
 
 #if USE_DEPTH_INFO
-			auto& depthInfo = projectionDeptInfos[eyeIndex];
+            auto& depthInfo = projectionDeptInfos[eyeIndex];
             depthInfo.maxDepth = 1.0f;
             depthInfo.farZ = farZ;
             depthInfo.nearZ = nearZ;
             depthInfo.subImage.swapchain = projectionDepthSwapchain;
-			depthInfo.subImage.imageRect = imageRect;
-			layerView.next = &depthInfo;
+            depthInfo.subImage.imageRect = imageRect;
+            layerView.next = &depthInfo;
 #endif
         });
         layersPointers.push_back(&projectionLayer);
@@ -402,8 +402,6 @@ public:
             xrContext.onFrameStart();
             xrContext.updateEyeViews(space);
             updateHandStates();
-            scene.updateEyes(eyeStates);
-            scene.updateHands(handStates);
 
             xr::for_each_side_index([&](size_t eyeIndex) {
                 const auto& viewState = xrContext.eyeViewStates[eyeIndex];
@@ -417,12 +415,20 @@ public:
                     projectionLayerView.pose = viewState.pose;
                 }
             });
+            scene.updateEyes(eyeStates);
+            scene.updateHands(handStates);
+
         }
 
         return true;
     }
 
-    virtual void renderSceneLayer() final { scene.render(framebuffer); }
+    virtual void renderSceneLayer() final { 
+        framebuffer.bind();
+        framebuffer.clear();
+        scene.render(framebuffer); 
+        framebuffer.bindDefault();
+    }
 
     virtual void blitToProjection() {
         // Blit to the swapchain

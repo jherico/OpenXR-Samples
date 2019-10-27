@@ -40,8 +40,14 @@ const QSurfaceFormat& getDefaultSurfaceFormat() {
 
 QGuiApplication* g_app{ nullptr };
 
+void messageHandler(QtMsgType type, const QMessageLogContext & context, const QString & message) {
+    OutputDebugStringA(message.toStdString().c_str());
+    OutputDebugStringA("\n");
+}
+
 void xr_examples::qt::Window::init() {
     g_app = new QGuiApplication(g_argc, g_argv);
+    qInstallMessageHandler(messageHandler);
 }
 
 struct Window::Private {
@@ -80,7 +86,7 @@ struct Window::Private {
 };
 
 Window::Window() {
-	g_window = this;
+    g_window = this;
 }
 
 Window::~Window() {

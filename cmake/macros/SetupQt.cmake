@@ -1,7 +1,8 @@
 
 macro(setup_qt)
-    find_package(Qt5 QUIET COMPONENTS ${ARGN})
+    find_package(Qt5 5.14 QUIET COMPONENTS ${ARGN})
     if (Qt5_FOUND)
+        message(STATUS "Qt ${Qt5_VERSION} found")
         if (NOT Qt5_BIN_DIR) 
             get_property(QMAKE_EXECUTABLE TARGET Qt5::qmake PROPERTY LOCATION)
             get_filename_component(Qt5_BIN_DIR ${QMAKE_EXECUTABLE} DIRECTORY CACHE)

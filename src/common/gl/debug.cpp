@@ -25,11 +25,11 @@ void GLAPIENTRY MessageCallback(GLenum source,
                                 GLsizei length,
                                 const GLchar* message,
                                 const void* userParam) {
-	if (type == GL_DEBUG_TYPE_OTHER) {
-		return;
-	}
-	auto level = toLogLevel(severity);
-	LOG_FORMATTED(level, fmt::format("GL CALLBACK: 0x{:x}, message = {}", type, message).c_str());
+    if (type == GL_DEBUG_TYPE_OTHER) {
+        return;
+    }
+    auto level = toLogLevel(severity);
+    LOG_FORMATTED(level, fmt::format("GL CALLBACK: 0x{:x}, message = {}", type, message).c_str());
 }
 
 void xr_examples::gl::enableDebugLogging() {
