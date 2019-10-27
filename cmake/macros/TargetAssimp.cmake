@@ -6,7 +6,6 @@
 #  See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 #
 macro(TARGET_ASSIMP)
-    find_package(ASSIMP CONFIG REQUIRED)
-    target_include_directories(${TARGET_NAME} PUBLIC ${ASSIMP_INCLUDE_DIRS})
-    target_link_libraries(${TARGET_NAME} PRIVATE ${ASSIMP_LIBRARIES})
+    find_package(assimp CONFIG REQUIRED)
+    target_link_libraries(${TARGET_NAME} PRIVATE assimp::assimp)
 endmacro()
