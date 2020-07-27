@@ -54,7 +54,8 @@ public:
         uint32_t imageIndex = arrayIndex * (basist::cBASISTexTypeCubemapArray ? 6 : 1);
         imageIndex += faceIndex;
         if (!dec.transcode_image_level(data, dataSize, imageIndex, 0, outputBuffer,
-                                       imageInfo.m_orig_height * imageInfo.m_orig_width, basist::cTFRGBA32, 0)) {
+                                       imageInfo.m_orig_height * imageInfo.m_orig_width,
+                                       basist::transcoder_texture_format::cTFRGBA32, 0)) {
             throw std::runtime_error(fmt::format("Failed transcoding image level (%u)!\n", imageIndex));
         }
     }

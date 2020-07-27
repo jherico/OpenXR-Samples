@@ -20,28 +20,58 @@
 #include <unordered_map>
 #include <functional>
 
-#include <openxr/openxr.hpp>
+#include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <array>
+
 #include <SDL2/SDL.h>
 
 #include <glad/glad.h>
 #include <logging.hpp>
 
+PFN_xrCreateDebugUtilsMessengerEXT pxrCreateDebugUtilsMessengerEXT{ nullptr };
+PFN_xrDestroyDebugUtilsMessengerEXT pxrDestroyDebugUtilsMessengerEXT{ nullptr };
+PFN_xrGetOpenGLGraphicsRequirementsKHR pxrGetOpenGLGraphicsRequirementsKHR{ nullptr };
+
 namespace xrs {
+
+enum Side : uint32_t
+{
+    Left = 0,
+    Right = 1,
+};
+
+template <typename SideHandler>
+static inline void for_each_side(SideHandler&& handler) {
+    handler(Left);
+    handler(Right);
+}
+
+template <typename IndexHandler>
+static inline void for_each_side_index(IndexHandler&& handler) {
+    handler(0);
+    handler(1);
+}
 
 namespace DebugUtilsEXT {
 
-using MessageSeverityFlagBits = xr::DebugUtilsMessageSeverityFlagBitsEXT;
-using MessageTypeFlagBits = xr::DebugUtilsMessageTypeFlagBitsEXT;
-using MessageSeverityFlags = xr::DebugUtilsMessageSeverityFlagsEXT;
-using MessageTypeFlags = xr::DebugUtilsMessageTypeFlagsEXT;
-using CallbackData = xr::DebugUtilsMessengerCallbackDataEXT;
-using Messenger = xr::DebugUtilsMessengerEXT;
+using MessageSeverityFlagBits = XrDebugUtilsMessageSeverityFlagsEXT;
+using MessageTypeFlagBits = XrDebugUtilsMessageTypeFlagsEXT;
+using MessageSeverityFlags = XrDebugUtilsMessageSeverityFlagsEXT;
+constexpr MessageSeverityFlags ALL_SEVERITIES =
+    XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+    XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+using MessageTypeFlags = XrDebugUtilsMessageTypeFlagsEXT;
+constexpr MessageTypeFlags ALL_TYPES =
+    XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+    XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT;
+using CallbackData = XrDebugUtilsMessengerCallbackDataEXT;
+using Messenger = XrDebugUtilsMessengerEXT;
 
 // Raw C callback
 static XrBool32 debugCallback(XrDebugUtilsMessageSeverityFlagsEXT sev_,
@@ -52,12 +82,24 @@ static XrBool32 debugCallback(XrDebugUtilsMessageSeverityFlagsEXT sev_,
     return XR_TRUE;
 }
 
-Messenger create(const xr::Instance& instance,
-                 const MessageSeverityFlags& severityFlags = MessageSeverityFlagBits::AllBits,
-                 const MessageTypeFlags& typeFlags = MessageTypeFlagBits::AllBits,
+#define CHECK_XR_RESULT(x)                            \
+    {                                                 \
+        XrResult xr_result;                           \
+        if (!XR_SUCCEEDED(xr_result = x)) {           \
+            throw new std::runtime_error("XR error"); \
+        }                                             \
+    }
+
+Messenger create(const XrInstance& instance,
+                 const MessageSeverityFlags& severityFlags = ALL_SEVERITIES,
+                 const MessageTypeFlags& typeFlags = ALL_TYPES,
                  void* userData = nullptr) {
-    return instance.createDebugUtilsMessengerEXT({ severityFlags, typeFlags, debugCallback, userData },
-                                                 xr::DispatchLoaderDynamic{ instance });
+    XrDebugUtilsMessengerCreateInfoEXT createInfo{
+        XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr, severityFlags, typeFlags, debugCallback, userData
+    };
+    Messenger result;
+    CHECK_XR_RESULT(pxrCreateDebugUtilsMessengerEXT(instance, &createInfo, &result));
+    return result;
 }
 
 }  // namespace DebugUtilsEXT
@@ -303,12 +345,21 @@ struct OpenXrExample {
     }
 
     bool enableDebug{ true };
-    xr::Instance instance;
-    xr::DispatchLoaderDynamic dispatch;
+    XrInstance instance;
     xrs::DebugUtilsEXT::Messenger messenger;
     void prepareXrInstance() {
-        std::unordered_map<std::string, xr::ExtensionProperties> discoveredExtensions;
-        for (const auto& extensionProperties : xr::enumerateInstanceExtensionProperties(nullptr)) {
+        uint32_t extensionCount{ 0 };
+        CHECK_XR_RESULT(xrEnumerateInstanceExtensionProperties(nullptr, 0, &extensionCount, nullptr));
+        std::vector<XrExtensionProperties> vector;
+        vector.resize(extensionCount);
+        for (int i = 0; i < extensionCount; ++i) {
+            auto& extenionProperties = vector[i];
+            extenionProperties = XrExtensionProperties{ XR_TYPE_EXTENSION_PROPERTIES, nullptr };
+        }
+        auto result = xrEnumerateInstanceExtensionProperties(nullptr, extensionCount, &extensionCount, vector.data());
+        CHECK_XR_RESULT(result);
+        std::unordered_map<std::string, XrExtensionProperties> discoveredExtensions;
+        for (const auto& extensionProperties : vector) {
             discoveredExtensions.insert({ extensionProperties.extensionName, extensionProperties });
         }
 
@@ -330,53 +381,64 @@ struct OpenXrExample {
         if (enableDebug) {
             requestedExtensions.push_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
+        XrApplicationInfo appInfo{ "gl_single_file_example", 0, "openXrSamples", 0, XR_MAKE_VERSION(1, 0, 9) };
 
-        xr::InstanceCreateInfo ici{ {},
-                                    { "gl_single_file_example", 0, "openXrSamples", 0, xr::Version::current() },
-                                    0,
-                                    nullptr,
-                                    (uint32_t)requestedExtensions.size(),
-                                    requestedExtensions.data() };
+        XrInstanceCreateInfo ici{
+            XR_TYPE_INSTANCE_CREATE_INFO, nullptr, 0, appInfo, 0, nullptr, (uint32_t)requestedExtensions.size(),
+            requestedExtensions.data()
+        };
 
-        xr::DebugUtilsMessengerCreateInfoEXT dumci;
+        XrDebugUtilsMessengerCreateInfoEXT dumci{
+            XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr
+        };
         if (enableDebug) {
-            dumci.messageSeverities = xr::DebugUtilsMessageSeverityFlagBitsEXT::AllBits;
-            dumci.messageTypes = xr::DebugUtilsMessageTypeFlagBitsEXT::AllBits;
+            dumci.messageSeverities = xrs::DebugUtilsEXT::ALL_SEVERITIES;
+            dumci.messageTypes = xrs::DebugUtilsEXT::ALL_TYPES;
             dumci.userData = this;
             dumci.userCallback = &xrs::DebugUtilsEXT::debugCallback;
             ici.next = &dumci;
         }
 
         // Create the actual instance
-        instance = xr::createInstance(ici);
+        CHECK_XR_RESULT(xrCreateInstance(&ici, &instance));
+        PFN_xrCreateDebugUtilsMessengerEXT pxrCreateDebugUtilsMessengerEXT{ nullptr };
+        PFN_xrDestroyDebugUtilsMessengerEXT pxrDestroyDebugUtilsMessengerEXT{ nullptr };
+        PFN_xrGetOpenGLGraphicsRequirementsKHR pxrGetOpenGLGraphicsRequirementsKHR{ nullptr };
+
+        xrGetInstanceProcAddr(instance, "xrCreateDebugUtilsMessengerEXT",
+                              (PFN_xrVoidFunction*)&pxrCreateDebugUtilsMessengerEXT);
+        xrGetInstanceProcAddr(instance, "xrDestroyDebugUtilsMessengerEXT",
+                              (PFN_xrVoidFunction*)&pxrDestroyDebugUtilsMessengerEXT);
+        xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR",
+                              (PFN_xrVoidFunction*)&pxrGetOpenGLGraphicsRequirementsKHR);
 
         // Turn on debug logging
         if (enableDebug) {
             messenger = xrs::DebugUtilsEXT::create(instance);
         }
 
-        // Having created the isntance, the very first thing to do is populate the dynamic dispatch, loading
-        // all the available functions from the runtime
-        dispatch = xr::DispatchLoaderDynamic::createFullyPopulated(instance, &xrGetInstanceProcAddr);
-
         // Log the instance properties
-        xr::InstanceProperties instanceProperties = instance.getInstanceProperties();
+        XrInstanceProperties instanceProperties{ XR_TYPE_INSTANCE_PROPERTIES, nullptr };
+
+        CHECK_XR_RESULT(xrGetInstanceProperties(instance, &instanceProperties));
         LOG_INFO("OpenXR Runtime {} version {}.{}.{}",  //
-                 (const char*)instanceProperties.runtimeName, instanceProperties.runtimeVersion.major(),
-                 instanceProperties.runtimeVersion.minor(), instanceProperties.runtimeVersion.patch());
+                 (const char*)instanceProperties.runtimeName, XR_VERSION_MAJOR(instanceProperties.runtimeVersion),
+                 XR_VERSION_MINOR(instanceProperties.runtimeVersion), XR_VERSION_PATCH(instanceProperties.runtimeVersion));
     }
 
-    xr::SystemId systemId;
+    XrSystemId systemId;
     glm::uvec2 renderTargetSize;
-    xr::GraphicsRequirementsOpenGLKHR graphicsRequirements;
+    XrGraphicsRequirementsOpenGLKHR graphicsRequirements;
     void prepareXrSystem() {
         // We want to create an HMD example, so we ask for a runtime that supposts that form factor
         // and get a response in the form of a systemId
-        systemId = instance.getSystem(xr::SystemGetInfo{ xr::FormFactor::HeadMountedDisplay });
+        XrSystemGetInfo getInfo{ XR_TYPE_SYSTEM_GET_INFO, nullptr, XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY };
+        CHECK_XR_RESULT(xrGetSystem(instance, &getInfo, &systemId));
 
         // Log the system properties
         {
-            xr::SystemProperties systemProperties = instance.getSystemProperties(systemId);
+            XrSystemProperties systemProperties{ XR_TYPE_SYSTEM_PROPERTIES, nullptr };
+            CHECK_XR_RESULT(xrGetSystemProperties(instance, systemId, &systemProperties));
             LOG_INFO("OpenXR System {} max layers {} max swapchain image size {}x{}",  //
                      (const char*)systemProperties.systemName, (uint32_t)systemProperties.graphicsProperties.maxLayerCount,
                      (uint32_t)systemProperties.graphicsProperties.maxSwapchainImageWidth,
@@ -385,9 +447,14 @@ struct OpenXrExample {
 
         // Find out what view configurations we have available
         {
-            auto viewConfigTypes = instance.enumerateViewConfigurations(systemId);
+            uint32_t viewConfigCount{ 0 };
+            CHECK_XR_RESULT(xrEnumerateViewConfigurations(instance, systemId, viewConfigCount, &viewConfigCount, nullptr));
+            std::vector<XrViewConfigurationType> viewConfigTypes;
+            viewConfigTypes.resize(viewConfigCount);
+            CHECK_XR_RESULT(
+                xrEnumerateViewConfigurations(instance, systemId, viewConfigCount, &viewConfigCount, viewConfigTypes.data()));
             auto viewConfigType = viewConfigTypes[0];
-            if (viewConfigType != xr::ViewConfigurationType::PrimaryStereo) {
+            if (viewConfigType != XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO) {
                 throw std::runtime_error("Example only supports stereo-based HMD rendering");
             }
             //xr::ViewConfigurationProperties viewConfigProperties =
@@ -395,8 +462,13 @@ struct OpenXrExample {
             //logging::log(logging::Level::Info, fmt::format(""));
         }
 
-        std::vector<xr::ViewConfigurationView> viewConfigViews =
-            instance.enumerateViewConfigurationViews(systemId, xr::ViewConfigurationType::PrimaryStereo);
+        uint32_t viewConfigCount = 0;
+        CHECK_XR_RESULT(xrEnumerateViewConfigurationViews(instance, systemId, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+                                                          viewConfigCount, &viewConfigCount, nullptr));
+        std::vector<XrViewConfigurationView> viewConfigViews;
+        viewConfigViews.resize(viewConfigCount);
+        CHECK_XR_RESULT(xrEnumerateViewConfigurationViews(instance, systemId, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+                                                          viewConfigCount, &viewConfigCount, nullptr));
 
         // Instead of createing a swapchain per-eye, we create a single swapchain of double width.
         // Even preferable would be to create a swapchain texture array with one layer per eye, so that we could use the
@@ -412,7 +484,7 @@ struct OpenXrExample {
 
         renderTargetSize = { viewConfigViews[0].recommendedImageRectWidth * 2, viewConfigViews[0].recommendedImageRectHeight };
 
-        graphicsRequirements = instance.getOpenGLGraphicsRequirementsKHR(systemId, dispatch);
+        CHECK_XR_RESULT(pxrGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements));
     }
 
     SDL_Window* window;
@@ -430,8 +502,8 @@ struct OpenXrExample {
         SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
         SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, graphicsRequirements.maxApiVersionSupported.major());
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, graphicsRequirements.maxApiVersionSupported.minor());
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, XR_VERSION_MAJOR(graphicsRequirements.maxApiVersionSupported));
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, XR_VERSION_MINOR(graphicsRequirements.maxApiVersionSupported));
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 
@@ -445,27 +517,39 @@ struct OpenXrExample {
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     }
 
-    xr::Session session;
+    XrSession session;
     void prepareXrSession() {
-        xr::GraphicsBindingOpenGLWin32KHR graphicsBinding{ wglGetCurrentDC(), wglGetCurrentContext() };
-        xr::SessionCreateInfo sci{ {}, systemId };
-        sci.next = &graphicsBinding;
-        session = instance.createSession(sci);
+        XrGraphicsBindingOpenGLWin32KHR graphicsBinding{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR, nullptr, wglGetCurrentDC(),
+                                                         wglGetCurrentContext() };
+        XrSessionCreateInfo sci{ XR_TYPE_SESSION_CREATE_INFO, &graphicsBinding, 0, systemId };
+        CHECK_XR_RESULT(xrCreateSession(instance, &sci, &session));
 
-        auto referenceSpaces = session.enumerateReferenceSpaces();
-        space = session.createReferenceSpace(xr::ReferenceSpaceCreateInfo{ xr::ReferenceSpaceType::Local });
+        uint32_t referenceSpaceCount{ 0 };
+        CHECK_XR_RESULT(xrEnumerateReferenceSpaces(session, referenceSpaceCount, &referenceSpaceCount, nullptr));
+        std::vector<XrReferenceSpaceType> referenceSpaces;
+        referenceSpaces.resize(referenceSpaceCount);
+        CHECK_XR_RESULT(xrEnumerateReferenceSpaces(session, referenceSpaceCount, &referenceSpaceCount, referenceSpaces.data()));
 
-        auto swapchainFormats = session.enumerateSwapchainFormats();
+        XrReferenceSpaceCreateInfo rsci{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO, nullptr };
+        CHECK_XR_RESULT(xrCreateReferenceSpace(session, &rsci, &space));
+
+        uint32_t swapchainFormatCount{ 0 };
+        CHECK_XR_RESULT(xrEnumerateSwapchainFormats(session, swapchainFormatCount, &swapchainFormatCount, nullptr));
+        std::vector<int64_t> swapchainFormats;
+        swapchainFormats.resize(swapchainFormatCount);
+        CHECK_XR_RESULT(
+            xrEnumerateSwapchainFormats(session, swapchainFormatCount, &swapchainFormatCount, swapchainFormats.data()));
         for (const auto& format : swapchainFormats) {
             LOG_INFO("\t{}", formatToString((GLenum)format));
         }
     }
 
-    xr::SwapchainCreateInfo swapchainCreateInfo;
-    xr::Swapchain swapchain;
-    std::vector<xr::SwapchainImageOpenGLKHR> swapchainImages;
+    XrSwapchainCreateInfo swapchainCreateInfo;
+    XrSwapchain swapchain;
+    std::vector<XrSwapchainImageOpenGLKHR> swapchainImages;
     void prepareXrSwapchain() {
-        swapchainCreateInfo.usageFlags = xr::SwapchainUsageFlagBits::TransferDst;
+        swapchainCreateInfo = XrSwapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO, nullptr };
+        swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_TRANSFER_DST_BIT;
         swapchainCreateInfo.format = (int64_t)GL_SRGB8_ALPHA8;
         swapchainCreateInfo.sampleCount = 1;
         swapchainCreateInfo.arraySize = 1;
@@ -474,22 +558,26 @@ struct OpenXrExample {
         swapchainCreateInfo.width = renderTargetSize.x;
         swapchainCreateInfo.height = renderTargetSize.y;
 
-        swapchain = session.createSwapchain(swapchainCreateInfo);
-
-        swapchainImages = swapchain.enumerateSwapchainImages<xr::SwapchainImageOpenGLKHR>();
+        CHECK_XR_RESULT(xrCreateSwapchain(session, &swapchainCreateInfo, &swapchain));
+        uint32_t swapchainImageCount{ 0 };
+        CHECK_XR_RESULT(xrEnumerateSwapchainImages(swapchain, swapchainImageCount, &swapchainImageCount, nullptr));
+        swapchainImages.resize(swapchainImageCount);
+        CHECK_XR_RESULT(xrEnumerateSwapchainImages(swapchain, swapchainImageCount, &swapchainImageCount,
+                                                   (XrSwapchainImageBaseHeader*)swapchainImages.data()));
     }
 
-    std::array<xr::CompositionLayerProjectionView, 2> projectionLayerViews;
-    xr::CompositionLayerProjection projectionLayer{ {}, {}, 2, projectionLayerViews.data() };
-    xr::Space& space{ projectionLayer.space };
-    std::vector<xr::CompositionLayerBaseHeader*> layersPointers;
+    std::array<XrCompositionLayerProjectionView, 2> projectionLayerViews;
+    XrCompositionLayerProjection projectionLayer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION, nullptr, 0, 0, 2,
+                                                  projectionLayerViews.data() };
+    XrSpace& space{ projectionLayer.space };
+    std::vector<XrCompositionLayerBaseHeader*> layersPointers;
     void prepareXrCompositionLayers() {
         //session.getReferenceSpaceBoundsRect(xr::ReferenceSpaceType::Local, bounds);
         projectionLayer.viewCount = 2;
         projectionLayer.views = projectionLayerViews.data();
-        layersPointers.push_back(&projectionLayer);
+        layersPointers.push_back((XrCompositionLayerBaseHeader*)&projectionLayer);
         // Finish setting up the layer submission
-        xr::for_each_side_index([&](uint32_t eyeIndex) {
+        xrs::for_each_side_index([&](uint32_t eyeIndex) {
             auto& layerView = projectionLayerViews[eyeIndex];
             layerView.subImage.swapchain = swapchain;
             layerView.subImage.imageRect.extent = { (int32_t)renderTargetSize.x / 2, (int32_t)renderTargetSize.y };
@@ -555,15 +643,15 @@ struct OpenXrExample {
 
     void pollXrEvents() {
         while (true) {
-            xr::EventDataBuffer eventBuffer;
-            auto pollResult = instance.pollEvent(eventBuffer);
-            if (pollResult == xr::Result::EventUnavailable) {
+            XrEventDataBuffer eventBuffer;
+            auto pollResult = xrPollEvent(instance, &eventBuffer);
+            if (pollResult == XR_EVENT_UNAVAILABLE) {
                 break;
             }
 
             switch (eventBuffer.type) {
-                case xr::StructureType::EventDataSessionStateChanged:
-                    onSessionStateChanged(reinterpret_cast<xr::EventDataSessionStateChanged&>(eventBuffer));
+                case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
+                    onSessionStateChanged(reinterpret_cast<XrEventDataSessionStateChanged&>(eventBuffer));
                     break;
 
                 default:
@@ -572,18 +660,20 @@ struct OpenXrExample {
         }
     }
 
-    xr::SessionState sessionState{ xr::SessionState::Idle };
-    void onSessionStateChanged(const xr::EventDataSessionStateChanged& sessionStateChangedEvent) {
+    XrSessionState sessionState{ XR_SESSION_STATE_IDLE };
+    void onSessionStateChanged(const XrEventDataSessionStateChanged& sessionStateChangedEvent) {
         sessionState = sessionStateChangedEvent.state;
         switch (sessionState) {
-            case xr::SessionState::Ready:
+            case XR_SESSION_STATE_READY:
                 if (!quit) {
-                    session.beginSession(xr::SessionBeginInfo{ xr::ViewConfigurationType::PrimaryStereo });
+                    XrSessionBeginInfo sbi{ XR_TYPE_SESSION_BEGIN_INFO, nullptr, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO };
+                    CHECK_XR_RESULT(xrBeginSession(session, &sbi));
                 }
                 break;
 
-            case xr::SessionState::Stopping:
-                session.endSession();
+            case XR_SESSION_STATE_STOPPING:
+                xrEndSession(session);
+                session = nullptr;
                 quit = true;
                 break;
 
@@ -592,15 +682,16 @@ struct OpenXrExample {
         }
     }
 
-    xr::FrameState frameState;
+    XrFrameState frameState;
+    XrResult waitFrameResult;
     bool startXrFrame() {
+        XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO, nullptr };
         switch (sessionState) {
-            case xr::SessionState::Ready:
-            case xr::SessionState::Focused:
-            case xr::SessionState::Synchronized:
-            case xr::SessionState::Visible:
-                session.waitFrame(xr::FrameWaitInfo{}, frameState);
-                return xr::Result::Success == session.beginFrame(xr::FrameBeginInfo{});
+            case XR_SESSION_STATE_READY:
+            case XR_SESSION_STATE_FOCUSED:
+            case XR_SESSION_STATE_SYNCHRONIZED:
+            case XR_SESSION_STATE_VISIBLE:
+                return XR_UNQUALIFIED_SUCCESS(xrWaitFrame(session, &frameWaitInfo, &frameState));
 
             default:
                 break;
@@ -610,9 +701,10 @@ struct OpenXrExample {
     }
 
     void endXrFrame() {
-        xr::FrameEndInfo frameEndInfo{ frameState.predictedDisplayTime, xr::EnvironmentBlendMode::Opaque };
+        XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO, nullptr, frameState.predictedDisplayTime,
+                                     XR_ENVIRONMENT_BLEND_MODE_OPAQUE };
         if (frameState.shouldRender) {
-            xr::for_each_side_index([&](uint32_t eyeIndex) {
+            xrs::for_each_side_index([&](uint32_t eyeIndex) {
                 auto& layerView = projectionLayerViews[eyeIndex];
                 const auto& eyeView = eyeViewStates[eyeIndex];
                 layerView.fov = eyeView.fov;
@@ -621,17 +713,21 @@ struct OpenXrExample {
             frameEndInfo.layerCount = (uint32_t)layersPointers.size();
             frameEndInfo.layers = layersPointers.data();
         }
-        session.endFrame(frameEndInfo);
+        xrEndFrame(session, &frameEndInfo);
     }
 
-    std::vector<xr::View> eyeViewStates;
+    std::vector<XrView> eyeViewStates;
     std::array<glm::mat4, 2> eyeViews;
     std::array<glm::mat4, 2> eyeProjections;
     void updateXrViews() {
-        xr::ViewState vs;
-        xr::ViewLocateInfo vi{ xr::ViewConfigurationType::PrimaryStereo, frameState.predictedDisplayTime, space };
-        eyeViewStates = session.locateViews(vi, &(vs.operator XrViewState&()));
-        xr::for_each_side_index([&](size_t eyeIndex) {
+        XrViewState vs;
+        XrViewLocateInfo vi{ XR_TYPE_VIEW_LOCATE_INFO, nullptr, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+                             frameState.predictedDisplayTime, space };
+        uint32_t eyeViewStateCount{ 0 };
+        CHECK_XR_RESULT(xrLocateViews(session, &vi, &vs, eyeViewStateCount, &eyeViewStateCount, nullptr));
+        eyeViewStates.resize(eyeViewStateCount);
+        CHECK_XR_RESULT(xrLocateViews(session, &vi, &vs, eyeViewStateCount, &eyeViewStateCount, eyeViewStates.data()));
+        xrs::for_each_side_index([&](size_t eyeIndex) {
             const auto& viewState = eyeViewStates[eyeIndex];
             eyeProjections[eyeIndex] = xrs::toGlm(viewState.fov);
             eyeViews[eyeIndex] = glm::inverse(xrs::toGlm(viewState.pose));
@@ -641,8 +737,11 @@ struct OpenXrExample {
     void render() {
         uint32_t swapchainIndex;
 
-        swapchain.acquireSwapchainImage(xr::SwapchainImageAcquireInfo{}, &swapchainIndex);
-        swapchain.waitSwapchainImage(xr::SwapchainImageWaitInfo{ xr::Duration::infinite() });
+        XrSwapchainImageAcquireInfo ai{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, nullptr };
+        CHECK_XR_RESULT(xrAcquireSwapchainImage(swapchain, &ai, &swapchainIndex));
+
+        XrSwapchainImageWaitInfo wi{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, nullptr, XR_INFINITE_DURATION };
+        CHECK_XR_RESULT(xrWaitSwapchainImage(swapchain, &wi));
 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo.id);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, swapchainImages[swapchainIndex].image, 0);
@@ -665,7 +764,8 @@ struct OpenXrExample {
         glFramebufferTexture(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 0, 0);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-        swapchain.releaseSwapchainImage(xr::SwapchainImageReleaseInfo{});
+        XrSwapchainImageReleaseInfo ri{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, nullptr };
+        CHECK_XR_RESULT(xrReleaseSwapchainImage(swapchain, &ri));
 
         SDL_GL_SwapWindow(window);
     }
@@ -685,11 +785,11 @@ struct OpenXrExample {
         }
 
         if (swapchain) {
-            swapchain.destroy();
+            xrDestroySwapchain(swapchain);
             swapchain = nullptr;
         }
         if (session) {
-            session.destroy();
+            xrDestroySession(session);
             session = nullptr;
         }
 
@@ -697,10 +797,11 @@ struct OpenXrExample {
         SDL_DestroyWindow(window);
 
         if (messenger) {
-            messenger.destroy(dispatch);
+            pxrDestroyDebugUtilsMessengerEXT(messenger);
+            messenger = nullptr;
         }
         if (instance) {
-            instance.destroy();
+            xrDestroyInstance(instance);
             instance = nullptr;
         }
 
