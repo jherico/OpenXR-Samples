@@ -21,6 +21,8 @@ if (NOT "${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
     message( FATAL_ERROR "Only 64 bit builds supported." )
 endif()
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 include("cmake/compiler.cmake")
 
 find_package(Threads REQUIRED)
