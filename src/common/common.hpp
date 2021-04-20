@@ -45,7 +45,7 @@
 #define XR_USE_PLATFORM_WIN32
 #elif defined(__ANDROID__)
 #define XR_USE_PLATFORM_ANDROID
-#elif
+#else
 #define XR_USE_PLATFORM_XLIB
 #endif
 
