@@ -29,7 +29,7 @@ void GLAPIENTRY MessageCallback(GLenum source,
         return;
     }
     auto level = toLogLevel(severity);
-    LOG_FORMATTED(level, fmt::format("GL CALLBACK: 0x{:x}, message = {}", type, message).c_str());
+    LOG_FORMATTED(level, fmt::format("GL CALLBACK: 0x{:x}, message = {}", type, message).c_str(), "");
 }
 
 void xr_examples::gl::enableDebugLogging() {
